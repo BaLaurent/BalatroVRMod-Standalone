@@ -2,11 +2,14 @@
 
 Play [Balatro](https://www.playbalatro.com/) in virtual reality. Balatro keeps running on your PC as usual; a small mod (**BalatroVRBridge**) sends the whole game to a VR client built with Godot, which shows it around you in a virtual casino:
 
-- your cards in your hand – grab them, play them on the stand, throw them over your shoulder to discard
+- your cards in your hand – grab them, play them on the stake chip, throw them over your shoulder to discard
 - jokers as 3D models on the table, booster packs to tear open, a reroll machine with a lever
 - a shop counter where you grab what you buy, a real Wheel of Fortune, boss blinds that change the room
 - a score tower and chip mountains that grow with your run
 - the casino table as the main menu, Solatro – a solo card game on the table – and VR achievements
+
+
+Watch the Showcase Trailer here: https://youtu.be/jdWvll1mY_0
 
 You need your own copy of Balatro: the client takes all card art, sounds and the font from your installed game while it runs – **no game files from Balatro are included here.** Fan project, not affiliated with LocalThunk or Playstack.
 
@@ -21,7 +24,7 @@ You need Balatro (Steam, Windows) and a VR headset (e.g. Meta Quest with Virtual
 
 The zip contains `INSTALL.md` with every step in detail and help if something does not work.
 
-## Build it yourself
+## Or build it yourself
 
 - `client/` – the Godot 4.7 VR client (see `client/README.md` for all controls and features)
 - `BalatroMod/` – the Balatro mod (Lovely + Steamodded)
