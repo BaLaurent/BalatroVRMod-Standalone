@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_ko2v7"]
+[ext_resource type="Material" path="res://jokers/models/j_flash_mat.res" id="2_74i7m"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_flash.res" id="3_bvqs2"]
+
+[node name="j_flash" type="Node3D" unique_id=1683962725]
+script = ExtResource("1_ko2v7")
+glow_node = NodePath("Model")
+glow_source = "clamp(ab[\"mult\"] / 20.0, 0.0, 1.0)"
+glow_energy = 0.36
+
+[node name="Model" type="Node3D" parent="." unique_id=475359340]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=666396820]
+transform = Transform3D(0.10117616, 0, 0, 0, 0.10117616, 0, 0, 0, 0.10117616, -0.0012841856, 0.0432595, 0.015280705)
+material_override = ExtResource("2_74i7m")
+mesh = ExtResource("3_bvqs2")

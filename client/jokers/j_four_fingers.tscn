@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_ihki1"]
+[ext_resource type="Material" path="res://jokers/models/j_four_fingers_mat.res" id="2_6v5ad"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_four_fingers.res" id="3_qle2i"]
+
+[node name="j_four_fingers" type="Node3D" unique_id=1941544883]
+script = ExtResource("1_ihki1")
+
+[node name="Model" type="Node3D" parent="." unique_id=788641763]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=152915946]
+transform = Transform3D(0.12453336, 0.009045824, 4.8819744e-05, -0.009045824, 0.1245261, 0.0013459289, 4.8819744e-05, -0.0013459289, 0.12485421, -0.0009860372, 0.056204516, -0.0032575561)
+material_override = ExtResource("2_6v5ad")
+mesh = ExtResource("3_qle2i")

@@ -15,6 +15,7 @@ signal spun(speed: float)            # a real spin started (how hard it was swun
 signal gripped(hand: Node3D)         # a hand took hold of the rim (trigger)
 
 const R := 0.15                      # radius of the wheel
+const FOOT := R + 0.18               # the hub stands this high above the bottom of its foot (see _build)
 const N := 8                         # fields
 const SPIN_MIN := 4.0                # rad/s: a swipe at least this fast spins it for real
 const DECEL := 2.0                   # rad/s² braking that a spin would roughly have on its own

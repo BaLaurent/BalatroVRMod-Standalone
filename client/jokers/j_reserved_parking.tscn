@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_yl5bd"]
+[ext_resource type="Material" path="res://jokers/models/j_reserved_parking_mat.res" id="2_m2ccm"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_reserved_parking.res" id="3_0qvs1"]
+
+[node name="j_reserved_parking" type="Node3D" unique_id=1553445478]
+script = ExtResource("1_yl5bd")
+
+[node name="Model" type="Node3D" parent="." unique_id=2072265997]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=949283709]
+transform = Transform3D(0.12488566, 0.0016451312, 0.00015195493, -0.0016451312, 0.12277266, 0.022876333, 0.00015195493, -0.022876333, 0.12278359, 0.0009778995, 0.05404657, 0.0011560416)
+material_override = ExtResource("2_m2ccm")
+mesh = ExtResource("3_0qvs1")

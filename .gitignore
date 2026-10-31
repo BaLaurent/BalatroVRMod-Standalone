@@ -10,3 +10,10 @@ Photos/
 # screenshots (they show Balatro's card art)
 Docs/preview/
 Docs/alle_joker_modelle.png
+
+# local backups and test data
+Backups/
+# tutorial screenshots/videos (they show Balatro's card art); shipped inside the .pck
+client/tutorial/*
+!client/tutorial/README.md
+!client/tutorial/voice_script.md

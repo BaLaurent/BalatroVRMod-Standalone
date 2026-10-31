@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_v56jj"]
+[ext_resource type="Material" path="res://jokers/models/j_faceless_mat.res" id="2_462dl"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_faceless.res" id="3_c4fe2"]
+
+[node name="j_faceless" type="Node3D" unique_id=1604648501]
+script = ExtResource("1_v56jj")
+
+[node name="Model" type="Node3D" parent="." unique_id=521926275]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=1273456075]
+transform = Transform3D(0.14204633, 0.00063865853, -5.573414e-05, -0.00063865853, 0.13989913, -0.024604807, -5.573414e-05, 0.024604807, 0.13990058, -0.00028550797, 0.05456817, -0.0054028165)
+material_override = ExtResource("2_462dl")
+mesh = ExtResource("3_c4fe2")

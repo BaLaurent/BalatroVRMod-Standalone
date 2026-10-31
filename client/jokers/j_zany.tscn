@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_snn0u"]
+[ext_resource type="Material" path="res://jokers/models/j_zany_mat.res" id="2_dfsou"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_zany.res" id="3_3df8v"]
+
+[node name="j_zany" type="Node3D" unique_id=1196661036]
+script = ExtResource("1_snn0u")
+
+[node name="Model" type="Node3D" parent="." unique_id=122405997]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=728418476]
+transform = Transform3D(0.11183935, -0.011385794, -0.00078068447, 0.011385794, 0.110789955, 0.015304744, -0.00078068447, -0.015304744, 0.111370735, -0.0006487393, 0.059648987, 0.0030889984)
+material_override = ExtResource("2_dfsou")
+mesh = ExtResource("3_3df8v")

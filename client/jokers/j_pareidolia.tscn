@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_muqcx"]
+[ext_resource type="Material" path="res://jokers/models/j_pareidolia_mat.res" id="2_hd1cj"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_pareidolia.res" id="3_ico72"]
+
+[node name="j_pareidolia" type="Node3D" unique_id=1983191625]
+script = ExtResource("1_muqcx")
+
+[node name="Model" type="Node3D" parent="." unique_id=1564353277]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=1057921542]
+transform = Transform3D(0.1501746, -0.00042263494, -5.7421268e-05, 0.00042263494, 0.14473085, 0.040067393, -5.7421268e-05, -0.040067393, 0.14473146, 7.497475e-05, 0.045122232, -0.0045342897)
+material_override = ExtResource("2_hd1cj")
+mesh = ExtResource("3_ico72")

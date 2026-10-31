@@ -56,7 +56,8 @@ var _flag: Node3D
 
 
 func set_total(total: float) -> void:
-	_target = maxf(total, 0.0)
+	# huge or broken totals (naneinf) stay finite, so the easing in log space never sees inf/nan
+	_target = clampf(total, 0.0, 1e300) if not is_nan(total) else 0.0
 	if _target < _shown * 0.5: # a new run: start again from nothing
 		_shown = 0.0
 
@@ -231,7 +232,17 @@ static func _edge_texture() -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 
+## 1,234,567 - and from 100 billion on like the game: 1.310e19 (int() would overflow beyond 9.2e18)
 static func _big(v: float) -> String:
+	if is_nan(v) or is_inf(v):
+		return "naneinf"
+	if v >= 1e11:
+		var e := int(floor(log(v) / log(10.0)))
+		var mant := v / pow(10.0, e)
+		if mant >= 9.9995: # rounding up to the next power of ten
+			mant /= 10.0
+			e += 1
+		return "%.3fe%d" % [mant, e]
 	var s := str(int(v))
 	var out := ""
 	while s.length() > 3:

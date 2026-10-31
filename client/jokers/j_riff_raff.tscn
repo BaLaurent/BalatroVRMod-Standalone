@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_gt3ut"]
+[ext_resource type="Material" path="res://jokers/models/j_riff_raff_mat.res" id="2_65grp"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_riff_raff.res" id="3_6r14w"]
+
+[node name="j_riff_raff" type="Node3D" unique_id=759625649]
+script = ExtResource("1_gt3ut")
+
+[node name="Model" type="Node3D" parent="." unique_id=1281746692]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=643889196]
+transform = Transform3D(0.15467466, -0.002709032, -0.000111837704, 0.002709032, 0.15414831, 0.012750203, -0.000111837704, -0.012750203, 0.15417206, 0.0005829839, 0.03856776, 0.0043820394)
+material_override = ExtResource("2_65grp")
+mesh = ExtResource("3_6r14w")

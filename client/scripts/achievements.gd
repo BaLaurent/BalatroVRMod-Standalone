@@ -17,6 +17,8 @@ const METAL_COLOURS := {"Gold": Color(0.95, 0.72, 0.25), "Silver": Color(0.82, 0
 ## (the first list had Ruby at 4, Emerald 5, Sapphire 6: Ruby was too close to the royal red felt)
 const METALS_V1_TO_V2 := {4: 6, 5: 4, 6: 5}
 const LIST := [
+	{"id": "tutorial", "name": "Tutorial Achievement", "text": "Press UNLOCK in the VR Tutorial", "goal": 1,
+		"reward": "A rainbow laser beam"},
 	{"id": "welcome", "name": "Welcome to the Casino", "text": "Start your first run in VR", "goal": 1,
 		"reward": "VIP neon sign in the casino"},
 	{"id": "rip_it", "name": "RIP IT!", "text": "Tear 10 booster packs open with both hands", "goal": 10,
@@ -125,6 +127,8 @@ const LIST := [
 		"reward": "Tower flames up on first-hand wins"},
 	{"id": "glass_cannon", "name": "Glass Cannon", "text": "Win a blind with a hand of 3 glass cards", "goal": 1,
 		"reward": "Glass cards sparkle in your hand"},
+	{"id": "overflow", "name": "Overflow", "text": "Score naneinf in VR (the score breaks)", "goal": 1,
+		"reward": "Glitching gloves, NANEINF CLUB neon sign", "group": "gloves"},
 	{"id": "collector", "name": "Collector", "text": "Unlock 40 other achievements", "goal": 40,
 		"reward": "Table felt in your colour", "group": "felt", "choices": METALS},
 ]

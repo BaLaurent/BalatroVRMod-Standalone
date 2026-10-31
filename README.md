@@ -34,6 +34,8 @@ The zip contains `INSTALL.md` with every step in detail and help if something do
 
 For development, set `TEST_TOOLS := true` in `client/scripts/main.gd` (joker gallery and boss preview in the VR menu) and `TEST_MONEY = true` in `BalatroVRBridge.lua` (money and test buttons in Balatro).
 
+Running Godot without a headset (scripts, imports, test renders): always pass `--xr-mode off`, otherwise OpenXR fails and Godot shows a "headset missing" message that blocks the run, e.g. `Godot_v4.7.2-stable_win64_console.exe --headless --xr-mode off --path client -s res://tools/shrink_ai_models.gd -- ...`. Windowed renders (screenshots of a scene) work the same way without `--headless`.
+
 ### Reporting bugs
 
 Open an [issue](https://github.com/alextreumer/BalatroVRMod/issues) and attach, if you can:

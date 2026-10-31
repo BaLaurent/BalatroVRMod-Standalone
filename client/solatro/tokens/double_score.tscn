@@ -1,0 +1,11 @@
+[gd_scene format=3]
+
+[ext_resource type="Material" path="res://jokers/models/solatro_double_score_mat.res" id="1_2k8cc"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/solatro_double_score.res" id="2_2hmvd"]
+
+[node name="Token" type="Node3D" unique_id=1168831881]
+
+[node name="Mesh" type="MeshInstance3D" parent="." unique_id=735652462]
+transform = Transform3D(0.05631122, 0.00094882696, 0.00010332659, -0.00094882696, 0.054991182, 0.012121633, 0.00010332659, -0.012121633, 0.05499927, 0.00074032485, 0.025119826, 0.0060927467)
+material_override = ExtResource("1_2k8cc")
+mesh = ExtResource("2_2hmvd")

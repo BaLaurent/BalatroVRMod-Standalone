@@ -1,0 +1,69 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_d55jr"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xdf8b"]
+albedo_color = Color(0.42, 0.25, 0.13, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_ajyo0"]
+size = Vector3(0.072, 0.007, 0.028)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wtlhg"]
+albedo_color = Color(0.357, 0.2125, 0.1105, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_moytu"]
+size = Vector3(0.066, 0.006, 0.004)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_b5wen"]
+albedo_color = Color(0.78, 0.16, 0.16, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_000nk"]
+size = Vector3(0.062, 0.088, 0.0016)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_l5vmk"]
+albedo_color = Color(0.93, 0.3, 0.27, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_idvg6"]
+size = Vector3(0.056, 0.082, 0.0004)
+
+[node name="j_red_card" type="Node3D" unique_id=599134289]
+script = ExtResource("1_d55jr")
+glow_node = NodePath("Stand/Card")
+glow_source = "clamp(ab[\"mult\"] / 30.0, 0.0, 1.0)"
+glow_energy = 0.4
+
+[node name="Stand" type="Node3D" parent="." unique_id=1186974266]
+
+[node name="@MeshInstance3D@27" type="MeshInstance3D" parent="Stand" unique_id=1699437578]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0035, 0)
+material_override = SubResource("StandardMaterial3D_xdf8b")
+mesh = SubResource("BoxMesh_ajyo0")
+
+[node name="@MeshInstance3D@28" type="MeshInstance3D" parent="Stand" unique_id=543950558]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.01, -0.004)
+material_override = SubResource("StandardMaterial3D_wtlhg")
+mesh = SubResource("BoxMesh_moytu")
+
+[node name="Card" type="MeshInstance3D" parent="Stand" unique_id=1275478907]
+transform = Transform3D(1, 0, 0, 0, 0.9848077, 0.17364818, 0, -0.17364818, 0.9848077, 0, 0.049331542, -0.009140519)
+material_override = SubResource("StandardMaterial3D_b5wen")
+mesh = SubResource("BoxMesh_000nk")
+metadata/half = 0.044
+
+[node name="@MeshInstance3D@29" type="MeshInstance3D" parent="Stand/Card" unique_id=475611031]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.0009999999)
+material_override = SubResource("StandardMaterial3D_l5vmk")
+mesh = SubResource("BoxMesh_idvg6")
+
+[node name="@Label3D@30" type="Label3D" parent="Stand/Card" unique_id=1953272884]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.017, -0.037, 0.0014)
+pixel_size = 5.2e-05
+double_sided = false
+modulate = Color(0.7, 0.14, 0.14, 1)
+text = "JOKER"
+font_size = 64
+outline_size = 0

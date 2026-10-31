@@ -1,0 +1,234 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_j85qq"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cw7ln"]
+albedo_color = Color(0.42, 0.25, 0.13, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_kah3b"]
+size = Vector3(0.072, 0.007, 0.028)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7bkca"]
+albedo_color = Color(0.357, 0.2125, 0.1105, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_d2pav"]
+size = Vector3(0.066, 0.006, 0.004)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cmtjt"]
+albedo_color = Color(0.94, 0.95, 0.97, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_chx2f"]
+size = Vector3(0.062, 0.088, 0.0016)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6bxer"]
+albedo_color = Color(0.82, 0.88, 0.94, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_kwwtc"]
+size = Vector3(0.036, 0.0105, 0.0004)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mkuoi"]
+albedo_color = Color(0.3, 0.42, 0.55, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_eoekc"]
+size = Vector3(0.008, 0.0012, 0.0004)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_18a4w"]
+albedo_color = Color(0.12, 0.13, 0.16, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_q81bt"]
+size = Vector3(0.036, 0.0105, 0.0004)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hp1y4"]
+albedo_color = Color(0.3, 0.42, 0.55, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_7o3ua"]
+size = Vector3(0.008, 0.0012, 0.0004)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_8ds34"]
+albedo_color = Color(0.82, 0.88, 0.94, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_fnpqk"]
+size = Vector3(0.036, 0.0105, 0.0006)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_afmt5"]
+albedo_color = Color(0.82, 0.88, 0.94, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_asj3j"]
+size = Vector3(0.036, 0.0105, 0.0004)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ld7ko"]
+albedo_color = Color(0.3, 0.42, 0.55, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_7o40g"]
+size = Vector3(0.008, 0.0012, 0.0004)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_22lq2"]
+albedo_color = Color(0.82, 0.88, 0.94, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_yfoe6"]
+size = Vector3(0.036, 0.0105, 0.0004)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_f71w6"]
+albedo_color = Color(0.3, 0.42, 0.55, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_2har8"]
+size = Vector3(0.008, 0.0012, 0.0004)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wath4"]
+albedo_color = Color(0.82, 0.88, 0.94, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_mm830"]
+size = Vector3(0.036, 0.0105, 0.0004)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_r5a2s"]
+albedo_color = Color(0.3, 0.42, 0.55, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_t8wal"]
+size = Vector3(0.008, 0.0012, 0.0004)
+
+[node name="j_hanging_chad" type="Node3D" unique_id=977587138]
+script = ExtResource("1_j85qq")
+
+[node name="Stand" type="Node3D" parent="." unique_id=18765487]
+
+[node name="@MeshInstance3D@2" type="MeshInstance3D" parent="Stand" unique_id=1907529192]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0035, 0)
+material_override = SubResource("StandardMaterial3D_cw7ln")
+mesh = SubResource("BoxMesh_kah3b")
+
+[node name="@MeshInstance3D@3" type="MeshInstance3D" parent="Stand" unique_id=1980818508]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.01, -0.004)
+material_override = SubResource("StandardMaterial3D_7bkca")
+mesh = SubResource("BoxMesh_d2pav")
+
+[node name="Card" type="MeshInstance3D" parent="Stand" unique_id=905528168]
+transform = Transform3D(1, 0, 0, 0, 0.9848077, 0.17364818, 0, -0.17364818, 0.9848077, 0, 0.049331542, -0.009140519)
+material_override = SubResource("StandardMaterial3D_cmtjt")
+mesh = SubResource("BoxMesh_chx2f")
+metadata/half = 0.044
+
+[node name="@Label3D@4" type="Label3D" parent="Stand/Card" unique_id=1615112570]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.034, 0.0011999999)
+pixel_size = 0.000112
+double_sided = false
+modulate = Color(0.3, 0.42, 0.55, 1)
+text = "BALLOT"
+font_size = 64
+outline_size = 0
+
+[node name="@MeshInstance3D@5" type="MeshInstance3D" parent="Stand/Card" unique_id=491070281]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.004, 0.020000003, 0.0009999999)
+material_override = SubResource("StandardMaterial3D_6bxer")
+mesh = SubResource("BoxMesh_kwwtc")
+
+[node name="@MeshInstance3D@6" type="MeshInstance3D" parent="Stand/Card" unique_id=1239476072]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.021, 0.020000003, 0.0009999999)
+material_override = SubResource("StandardMaterial3D_mkuoi")
+mesh = SubResource("BoxMesh_eoekc")
+
+[node name="@Label3D@7" type="Label3D" parent="Stand/Card" unique_id=613343566]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.004, 0.020000003, 0.0015)
+pixel_size = 0.000104
+double_sided = false
+modulate = Color(0.3, 0.42, 0.55, 1)
+text = "J"
+font_size = 64
+outline_size = 0
+
+[node name="@MeshInstance3D@8" type="MeshInstance3D" parent="Stand/Card" unique_id=1278123627]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.004, 0.006500002, 0.0009999999)
+material_override = SubResource("StandardMaterial3D_18a4w")
+mesh = SubResource("BoxMesh_q81bt")
+
+[node name="@MeshInstance3D@9" type="MeshInstance3D" parent="Stand/Card" unique_id=696234100]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.021, 0.006500002, 0.0009999999)
+material_override = SubResource("StandardMaterial3D_hp1y4")
+mesh = SubResource("BoxMesh_7o3ua")
+
+[node name="@Node3D@10" type="Node3D" parent="Stand/Card" unique_id=621249933]
+transform = Transform3D(0.92718387, -0.37460658, 0, 0.37460658, 0.92718387, 0, 0, 0, 1, 0.014, 0.011500001, 0.002)
+
+[node name="@MeshInstance3D@11" type="MeshInstance3D" parent="Stand/Card/@Node3D@10" unique_id=1657861749]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.018, -0.00525, 0)
+material_override = SubResource("StandardMaterial3D_8ds34")
+mesh = SubResource("BoxMesh_fnpqk")
+
+[node name="@Label3D@12" type="Label3D" parent="Stand/Card/@Node3D@10" unique_id=2115737976]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.018, -0.00525, 0.0005)
+pixel_size = 0.000104
+double_sided = false
+modulate = Color(0.3, 0.42, 0.55, 1)
+text = "O"
+font_size = 64
+outline_size = 0
+
+[node name="@MeshInstance3D@13" type="MeshInstance3D" parent="Stand/Card" unique_id=2066604573]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.004, -0.0069999993, 0.0009999999)
+material_override = SubResource("StandardMaterial3D_afmt5")
+mesh = SubResource("BoxMesh_asj3j")
+
+[node name="@MeshInstance3D@14" type="MeshInstance3D" parent="Stand/Card" unique_id=2022732725]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.021, -0.0069999993, 0.0009999999)
+material_override = SubResource("StandardMaterial3D_ld7ko")
+mesh = SubResource("BoxMesh_7o40g")
+
+[node name="@Label3D@15" type="Label3D" parent="Stand/Card" unique_id=1496671606]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.004, -0.0069999993, 0.0015)
+pixel_size = 0.000104
+double_sided = false
+modulate = Color(0.3, 0.42, 0.55, 1)
+text = "K"
+font_size = 64
+outline_size = 0
+
+[node name="@MeshInstance3D@16" type="MeshInstance3D" parent="Stand/Card" unique_id=124257067]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.004, -0.0205, 0.0009999999)
+material_override = SubResource("StandardMaterial3D_22lq2")
+mesh = SubResource("BoxMesh_yfoe6")
+
+[node name="@MeshInstance3D@17" type="MeshInstance3D" parent="Stand/Card" unique_id=2072205612]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.021, -0.0205, 0.0009999999)
+material_override = SubResource("StandardMaterial3D_f71w6")
+mesh = SubResource("BoxMesh_2har8")
+
+[node name="@Label3D@18" type="Label3D" parent="Stand/Card" unique_id=746403532]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.004, -0.0205, 0.0015)
+pixel_size = 0.000104
+double_sided = false
+modulate = Color(0.3, 0.42, 0.55, 1)
+text = "E"
+font_size = 64
+outline_size = 0
+
+[node name="@MeshInstance3D@19" type="MeshInstance3D" parent="Stand/Card" unique_id=919466921]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.004, -0.034, 0.0009999999)
+material_override = SubResource("StandardMaterial3D_wath4")
+mesh = SubResource("BoxMesh_mm830")
+
+[node name="@MeshInstance3D@20" type="MeshInstance3D" parent="Stand/Card" unique_id=561255816]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.021, -0.034, 0.0009999999)
+material_override = SubResource("StandardMaterial3D_r5a2s")
+mesh = SubResource("BoxMesh_t8wal")
+
+[node name="@Label3D@21" type="Label3D" parent="Stand/Card" unique_id=1450378209]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.004, -0.034, 0.0015)
+pixel_size = 0.000104
+double_sided = false
+modulate = Color(0.3, 0.42, 0.55, 1)
+text = "R"
+font_size = 64
+outline_size = 0

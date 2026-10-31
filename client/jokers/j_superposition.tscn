@@ -1,0 +1,17 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_784pg"]
+[ext_resource type="Material" path="res://jokers/models/j_superposition_mat.res" id="2_sq5v7"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_superposition.res" id="3_7v4mh"]
+
+[node name="j_superposition" type="Node3D" unique_id=1911598696]
+script = ExtResource("1_784pg")
+spin_node = NodePath("Model")
+spin_speed = 0.6
+
+[node name="Model" type="Node3D" parent="." unique_id=897212529]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=274584192]
+transform = Transform3D(0.12862265, -0.0004008068, 1.2096038e-05, 0.0004008068, 0.12838857, -0.0077564185, 1.2096038e-05, 0.0077564185, 0.1283892, -0.00021911752, 0.05539787, 0.0021309564)
+material_override = ExtResource("2_sq5v7")
+mesh = ExtResource("3_7v4mh")

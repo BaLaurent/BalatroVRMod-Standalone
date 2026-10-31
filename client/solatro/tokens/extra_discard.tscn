@@ -1,0 +1,11 @@
+[gd_scene format=3]
+
+[ext_resource type="Material" path="res://jokers/models/solatro_extra_discard_mat.res" id="1_orog2"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/solatro_extra_discard.res" id="2_bidhf"]
+
+[node name="Token" type="Node3D" unique_id=1452426922]
+
+[node name="Mesh" type="MeshInstance3D" parent="." unique_id=1320465242]
+transform = Transform3D(0.059431158, 0.0026127743, 4.9921273e-05, -0.0026127743, 0.059387762, 0.0022713249, 4.9921273e-05, -0.0022713249, 0.05944519, -0.0006710153, 0.025424302, -0.0010639259)
+material_override = ExtResource("1_orog2")
+mesh = ExtResource("2_bidhf")

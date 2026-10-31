@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_vl5pj"]
+[ext_resource type="Material" path="res://jokers/models/j_splash_mat.res" id="2_ep816"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_splash.res" id="3_sw71d"]
+
+[node name="j_splash" type="Node3D" unique_id=482837319]
+script = ExtResource("1_vl5pj")
+
+[node name="Model" type="Node3D" parent="." unique_id=268406306]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=953378795]
+transform = Transform3D(0.18516725, -0.016430615, 0.0022543997, 0.016430615, 0.17831051, -0.049973495, 0.0022543997, 0.049973495, 0.17905174, -0.001314623, 0.04633427, -0.0023276655)
+material_override = ExtResource("2_ep816")
+mesh = ExtResource("3_sw71d")

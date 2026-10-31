@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_dp481"]
+[ext_resource type="Material" path="res://jokers/models/j_burglar_mat.res" id="2_ltund"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_burglar.res" id="3_hrob1"]
+
+[node name="j_burglar" type="Node3D" unique_id=577429904]
+script = ExtResource("1_dp481")
+
+[node name="Model" type="Node3D" parent="." unique_id=270747671]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=796143225]
+transform = Transform3D(0.11495313, 0.009125422, 2.9113018e-05, -0.009125422, 0.11495078, 0.0007346209, 2.9113018e-05, -0.0007346209, 0.11531242, 0.0032670973, 0.053319685, -0.0014653609)
+material_override = ExtResource("2_ltund")
+mesh = ExtResource("3_hrob1")

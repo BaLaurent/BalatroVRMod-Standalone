@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_g2qy2"]
+[ext_resource type="Material" path="res://jokers/models/j_diet_cola_mat.res" id="2_35xtn"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_diet_cola.res" id="3_57xkr"]
+
+[node name="j_diet_cola" type="Node3D" unique_id=901447424]
+script = ExtResource("1_g2qy2")
+
+[node name="Model" type="Node3D" parent="." unique_id=540476805]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=1275058538]
+transform = Transform3D(0.12411477, -1.382365e-05, -2.0031038e-08, 1.382365e-05, 0.124114245, 0.00035969404, -2.0031038e-08, -0.00035969404, 0.124114245, -0.00028153407, 0.05437072, -4.6304784e-05)
+material_override = ExtResource("2_35xtn")
+mesh = ExtResource("3_57xkr")

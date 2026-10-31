@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_dhno7"]
+[ext_resource type="Material" path="res://jokers/models/j_stencil_mat.res" id="2_qt1oy"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_stencil.res" id="3_4jijp"]
+
+[node name="j_stencil" type="Node3D" unique_id=992933330]
+script = ExtResource("1_dhno7")
+
+[node name="Model" type="Node3D" parent="." unique_id=825400421]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=1532543497]
+transform = Transform3D(0.11791425, -0.0011111002, -7.639946e-05, 0.0011111002, 0.11680449, 0.016139666, -7.639946e-05, -0.016139666, 0.11680975, 0.00010055571, 0.05975146, 0.0034586804)
+material_override = ExtResource("2_qt1oy")
+mesh = ExtResource("3_4jijp")

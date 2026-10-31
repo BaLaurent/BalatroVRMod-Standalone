@@ -19,6 +19,13 @@ var _goal_label: Label3D
 var _ring_mat: StandardMaterial3D
 var _royal := false                 # achievement reward "Sky High": purple and gold chips
 var _green_ring := false            # achievement reward "Close Call": the ring glows green
+var _tube: MeshInstance3D
+var _ring: MeshInstance3D
+var _naneinf := false               # the score overflowed: tube burst, the score glitches
+var _glitch_t := 0.0
+var _glitch_tick := -1
+var calm := false                   # Calm Lights: the broken score doesn't flash in colours
+const GLITCH := ["naneinf", "NaN", "1.#INF", "-nan(ind)", "e+308", "inf", "NANEINF", "n4n3!nf", "#########", "nan e inf"]
 
 
 func _ready() -> void:
@@ -35,6 +42,7 @@ func _ready() -> void:
 	tube.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	(tube.mesh as CylinderMesh).cap_bottom = false # (a glass floor on the foot's top flickered)
 	(tube.mesh as CylinderMesh).cap_top = false
+	_tube = tube
 	# the goal: a gold ring at the top of the tube
 	var ring := MeshInstance3D.new()
 	var torus := TorusMesh.new()
@@ -48,6 +56,7 @@ func _ready() -> void:
 	ring.material_override = _ring_mat
 	ring.position.y = 0.012 + H
 	add_child(ring)
+	_ring = ring
 	# the chips: one MultiMesh, shown up to the score
 	var disc := CylinderMesh.new()
 	disc.top_radius = R
@@ -98,6 +107,9 @@ func set_score(score: float, target: float) -> void:
 func _process(delta: float) -> void:
 	if not visible:
 		return
+	if _naneinf:
+		_glitch(delta)
+		return
 	# the stack grows chip by chip over a moment (and is emptied at once for a new blind)
 	_fill = _want if _want < _fill else move_toward(_fill, _want, maxf(_want - _fill, 0.05) * delta * 3.0)
 	_mm.multimesh.visible_instance_count = int(round(_fill * N))
@@ -108,6 +120,71 @@ func _process(delta: float) -> void:
 		_ring_mat.emission_energy_multiplier = 1.5 + 0.8 * sin(t * 6.0)
 	else:
 		_ring_mat.emission_energy_multiplier = 0.4
+
+
+## The score overflowed ("naneinf"): the glass tube bursts, its chips shoot up through the ceiling
+## and the score glitches; the gold ring floats on, tumbling. The next blind's score mends it.
+func set_naneinf(on: bool) -> void:
+	if on == _naneinf:
+		return
+	_naneinf = on
+	_tube.visible = not on
+	_mm.visible = not on
+	if on:
+		_glitch_t = 0.0
+		_glitch_tick = -1
+		if is_visible_in_tree():
+			ShatterFX.burst(get_parent(), _tube.global_transform, [_tube.material_override], Vector2(R * 2.0 + 0.012, H + 0.01), false, 1.6)
+			_chip_geyser()
+	else:
+		_ring.rotation = Vector3.ZERO
+		_ring.position.y = 0.012 + H
+		_score_label.modulate = Color(0.5, 0.75, 1.0)
+
+
+## The tube's chips (and many more) shoot up out of it, high over the table.
+func _chip_geyser() -> void:
+	var p := CPUParticles3D.new()
+	p.mesh = _mm.multimesh.mesh
+	p.amount = 90
+	p.lifetime = 2.6
+	p.one_shot = true
+	p.explosiveness = 0.85
+	p.local_coords = false
+	p.direction = Vector3.UP
+	p.spread = 14.0
+	p.initial_velocity_min = 3.5
+	p.initial_velocity_max = 7.0
+	p.gravity = Vector3(0, -2.0, 0)
+	p.particle_flag_align_y = true # (they tumble along their flight)
+	var colours := Gradient.new()
+	colours.offsets = PackedFloat32Array([0.0, 0.33, 0.66, 1.0])
+	colours.colors = PackedColorArray([Color(0.15, 0.4, 0.95), Color(0.92, 0.92, 0.9), Color(1.0, 0.78, 0.2), Color(0.85, 0.15, 0.2)])
+	p.color_initial_ramp = colours
+	p.position = Vector3(0, 0.012 + H, 0)
+	add_child(p)
+	p.emitting = true
+	p.finished.connect(p.queue_free)
+
+
+func _glitch(delta: float) -> void:
+	_glitch_t += delta
+	var t := _glitch_t
+	# the ring floats where the top of the tube was, as if gravity forgot it
+	_ring.rotation = Vector3(sin(t * 0.9) * 0.6, t * 0.7, cos(t * 1.1) * 0.4)
+	_ring.position.y = 0.012 + H + 0.02 * sin(t * 1.7)
+	_ring_mat.emission_energy_multiplier = 1.2 + 0.6 * sin(t * 9.0)
+	var tick := int(t * (4.0 if calm else 11.0))
+	if tick == _glitch_tick:
+		return
+	_glitch_tick = tick
+	_score_label.text = "SCORE  " + (GLITCH[randi() % GLITCH.size()] if randf() < 0.4 else "naneinf")
+	if calm:
+		_score_label.modulate = Color(1.0, 0.35, 0.4)
+	else:
+		_score_label.modulate = Color.from_hsv(randf(), 0.75, 1.0) * 1.6 if randf() < 0.5 else Color(1.0, 0.25, 0.3) * 1.4
+	var j := 0.0015 if calm else 0.004
+	_score_label.position = Vector3(R + 0.02 + randf_range(-j, j), 0.012 + H * 0.55 + randf_range(-j, j), 0)
 
 
 ## Achievement rewards: purple and gold chips, a green ring.
@@ -130,6 +207,8 @@ func _colour_chips(gold: bool) -> void:
 
 ## 1,234,567 - and from 100 billion on like the game: 2.90e13
 static func _big(v: float) -> String:
+	if is_nan(v) or is_inf(v):
+		return "naneinf"
 	if v >= 1e11:
 		var e := int(floor(log(v) / log(10.0)))
 		return "%.2fe%d" % [v / pow(10.0, e), e]

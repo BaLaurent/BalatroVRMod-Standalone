@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_2aub1"]
+[ext_resource type="Material" path="res://jokers/models/j_delayed_grat_mat.res" id="2_s4cgt"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_delayed_grat.res" id="3_xp8vl"]
+
+[node name="j_delayed_grat" type="Node3D" unique_id=1440344723]
+script = ExtResource("1_2aub1")
+glow_node = NodePath("Model")
+glow_source = "clamp(run[\"discards_left\"] / 4.0, 0.0, 1.0)"
+glow_energy = 0.36
+
+[node name="Model" type="Node3D" parent="." unique_id=179473110]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=980274388]
+transform = Transform3D(0.12727806, -0.0057038288, -0.00018583656, 0.0057038288, 0.127008, 0.008289065, -0.00018583656, -0.008289065, 0.12713587, -0.00036689395, 0.05712344, 0.012169546)
+material_override = ExtResource("2_s4cgt")
+mesh = ExtResource("3_xp8vl")

@@ -92,9 +92,38 @@ Every value comes live from the game. A debuffed joker (e.g. by a boss blind) ge
 | **Golden Ticket** | A golden "ADMIT ONE" ticket on a stand | Turns slowly |
 | **Smeared Joker** | A painter's palette, red running into orange and blue into green, a brush | – |
 
+### AI-generated figures (all 150 jokers, tools/build_ai_jokers.gd)
+
+Since 2026-10-26 every joker is a figure generated as a 3D model with ComfyUI (from a prompt based on its card art, ~700 000 triangles) and shrunk to about 5 500 triangles and one 1024 px texture: `jokers/models/<key>.res` + `<key>_mat.res` (~0.6 MB per joker). The scenes are written by the tool from `tools/ai_jokers.json`, which holds per joker its height, a manual tilt (otherwise it is stood upright automatically) and its live effects:
+
+| Effect | Example jokers | What it means |
+|---|---|---|
+| glows in its own colours | Green Joker, Hologram, Vampire, Campfire, Rocket, Bull | grows with its Mult / xMult / money |
+| shrinks | Popcorn, Ice Cream, Ramen, Seltzer, Turtle Bean, Erosion | value running out |
+| grows | Egg, Square Joker, Wee Joker, Blue Joker | value growing |
+| glows when ready | Loyalty Card, Mystic Summit (0 discards), Dusk / Acrobat (last hand), Vagabond (≤ $4) | condition met |
+| suit symbol above it | Ancient Joker, Castle, The Idol | this round's suit |
+| text | To Do List, Mail-In Rebate, The Idol | this round's hand / rank |
+| see-through | Invisible Joker | rounds until it can be sold |
+| shakes / spins | Gros Michel, Drunkard, Misprint / 8 Ball, DNA, gems | – |
+
+```
+... --headless --xr-mode off --path client -s res://tools/build_ai_jokers.gd -- shrink <raw.glb> <key> [cut_below]
+... --headless --xr-mode off --path client -s res://tools/build_ai_jokers.gd -- scenes [key ...]
+```
+Exceptions built from code: **Loyalty Card, Red Card, Business Card, Hanging Chad** (flat cards in a wooden stand, `tools/build_card_jokers.gd` – the generator makes blocks of flat things and can't write; Loyalty Card stamps one circle per hand and glows before the x4), **The Order** (a fan 8 9 10 J Q via `"cards"` in `ai_jokers.json`, a real straight) and **Seltzer** (the hand-built siphon whose water sinks). **Ice Cream** is split above the cone (`"split"`): only the scoops melt down.
+
+`cut_below` removes a base the generator put under a figure (the tool prints a hint when it sees one). The raw models are kept outside the project in `Backups/ai_models_raw/`; the previous hand-built scenes are in `Backups/2026-10-26_vor-nachtauftrag/`.
+
 Jokers without a scene stand on the table as their card on a little stand.
 
+**Solatro's tokens** are generated the same way: shrink each raw model under the key `solatro_<token key>` (e.g. `solatro_shield`), then `... -s res://tools/build_solatro_tokens.gd` writes `solatro/tokens/<token key>.tscn` (upright, 5 cm high, at most 4.6 cm wide). `SolatroGame.token_model()` uses such a scene and falls back to the token built from code.
+
 The models are made by `tools/build_jokers.gd` (all except Popcorn and Runner) and `tools/build_popcorn.gd`. Running them again overwrites the scenes they build – so after editing a scene by hand, don't run them again (or only for other jokers: `... --script res://tools/build_jokers.gd -- castle obelisk`).
+
+## Your own models without Godot (players)
+
+Put a `.glb` or `.gltf` file named after the joker's key (e.g. `j_popcorn.glb`, or just `popcorn.glb`) into `%APPDATA%\Godot\app_userdata\Balatro in VR\custom_jokers\` or into a folder `custom_jokers` next to `Balatro in VR.exe`. On the next start it replaces the figure that comes with the game (also in the collection cabinet). It is stood on the pedestal and scaled to 11 cm (at most 14 cm wide); an optional `j_popcorn.json` next to it can set `{"height": 0.15, "rotation": [0, 90, 0]}`. Own models don't move (no fill, count or glow) – the value stays readable on the pedestal. "3D Jokers: Off" shows the cards as before. The folder in AppData is made on the first start, with a README.txt.
 
 ## Replacing a model (example: Ice Cream)
 

@@ -1,0 +1,16 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_1ftbc"]
+[ext_resource type="Material" path="res://jokers/models/j_drunkard_mat.res" id="2_nq56l"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_drunkard.res" id="3_8e0oi"]
+
+[node name="j_drunkard" type="Node3D" unique_id=1482321048]
+script = ExtResource("1_1ftbc")
+shake_node = NodePath("Model")
+
+[node name="Model" type="Node3D" parent="." unique_id=170122881]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=606889556]
+transform = Transform3D(0.11973406, -0.01246468, 0.00083357544, 0.01246468, 0.118664965, -0.0159864, 0.00083357544, 0.0159864, 0.11931491, 0.0006338825, 0.05621676, -0.0055483477)
+material_override = ExtResource("2_nq56l")
+mesh = ExtResource("3_8e0oi")

@@ -1,0 +1,231 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_dqs4e"]
+[ext_resource type="Material" path="res://jokers/models/j_crazy_mat.res" id="2_g7s8d"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_crazy.res" id="3_h6lnt"]
+[ext_resource type="Script" path="res://jokers/suit_shape.gd" id="4_koixp"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ckjat"]
+albedo_color = Color(0.96, 0.95, 0.9, 1)
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_cd6uo"]
+size = Vector3(0.0238, 0.034, 0.0015)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mx0e1"]
+albedo_color = Color(0.85, 0.15, 0.2, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_l622f"]
+size = Vector3(0.0238, 0.034, 0.0015)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3kb6c"]
+albedo_color = Color(0.12, 0.13, 0.2, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_8mc33"]
+size = Vector3(0.0238, 0.034, 0.0015)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_4qt2d"]
+albedo_color = Color(0.85, 0.15, 0.2, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_g2ju8"]
+size = Vector3(0.0238, 0.034, 0.0015)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2sfuh"]
+albedo_color = Color(0.12, 0.13, 0.2, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_27wc3"]
+size = Vector3(0.0238, 0.034, 0.0015)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bbhg1"]
+albedo_color = Color(0.85, 0.15, 0.2, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bfpb1"]
+albedo_color = Color(0.85, 0.15, 0.2, 1)
+
+[node name="j_crazy" type="Node3D" unique_id=809854775]
+script = ExtResource("1_dqs4e")
+
+[node name="Model" type="Node3D" parent="." unique_id=998278259]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=385422153]
+transform = Transform3D(0.1364448, 0.00037710308, -2.1829132e-05, -0.00037710308, 0.13553345, -0.015743868, -2.1829132e-05, 0.015743868, 0.13553397, -0.00038743526, 0.05529452, -0.002105307)
+material_override = ExtResource("2_g7s8d")
+mesh = ExtResource("3_h6lnt")
+
+[node name="Cards" type="Node3D" parent="." unique_id=170261681]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.03, 0, 0.032)
+
+[node name="Card0" type="Node3D" parent="Cards" unique_id=5971578]
+transform = Transform3D(0.809017, -0.58778524, 0, 0.58778524, 0.809017, 0, 0, 0, 1, 0, 0, 0)
+
+[node name="@MeshInstance3D@2" type="MeshInstance3D" parent="Cards/Card0" unique_id=452653060]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.017, 0)
+material_override = SubResource("StandardMaterial3D_ckjat")
+mesh = SubResource("BoxMesh_cd6uo")
+
+[node name="@Label3D@3" type="Label3D" parent="Cards/Card0" unique_id=1556295411]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0085, 0.02958, 0.001)
+pixel_size = 0.0001428
+double_sided = false
+modulate = Color(0.85, 0.15, 0.2, 1)
+text = "5"
+font_size = 64
+outline_size = 0
+
+[node name="@Label3D@4" type="Label3D" parent="Cards/Card0" unique_id=1490380290]
+transform = Transform3D(-1, 8.742278e-08, 0, -8.742278e-08, -1, 0, 0, 0, 1, 0.0085, 0.0044199997, 0.001)
+pixel_size = 0.0001428
+double_sided = false
+modulate = Color(0.85, 0.15, 0.2, 1)
+text = "5"
+font_size = 64
+outline_size = 0
+
+[node name="@CSGCombiner3D@5" type="CSGCombiner3D" parent="Cards/Card0" unique_id=995485434]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0085, 0.02312, 0.001)
+material_override = SubResource("StandardMaterial3D_mx0e1")
+script = ExtResource("4_koixp")
+size = 0.00408
+depth = 0.001
+
+[node name="Card1" type="Node3D" parent="Cards" unique_id=1146995409]
+transform = Transform3D(0.95105654, -0.309017, 0, 0.309017, 0.95105654, 0, 0, 0, 1, 0, 0, 0.0025)
+
+[node name="@MeshInstance3D@6" type="MeshInstance3D" parent="Cards/Card1" unique_id=1164118308]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.017, 0)
+material_override = SubResource("StandardMaterial3D_ckjat")
+mesh = SubResource("BoxMesh_l622f")
+
+[node name="@Label3D@7" type="Label3D" parent="Cards/Card1" unique_id=732477512]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0085, 0.02958, 0.001)
+pixel_size = 0.0001428
+double_sided = false
+modulate = Color(0.12, 0.13, 0.2, 1)
+text = "6"
+font_size = 64
+outline_size = 0
+
+[node name="@Label3D@8" type="Label3D" parent="Cards/Card1" unique_id=844137986]
+transform = Transform3D(-1, 8.742278e-08, 0, -8.742278e-08, -1, 0, 0, 0, 1, 0.0085, 0.0044199997, 0.001)
+pixel_size = 0.0001428
+double_sided = false
+modulate = Color(0.12, 0.13, 0.2, 1)
+text = "6"
+font_size = 64
+outline_size = 0
+
+[node name="@CSGCombiner3D@9" type="CSGCombiner3D" parent="Cards/Card1" unique_id=1313519854]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0085, 0.02312, 0.001)
+material_override = SubResource("StandardMaterial3D_3kb6c")
+script = ExtResource("4_koixp")
+suit = "Spades"
+size = 0.00408
+depth = 0.001
+
+[node name="Card2" type="Node3D" parent="Cards" unique_id=1825883247]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.005)
+
+[node name="@MeshInstance3D@10" type="MeshInstance3D" parent="Cards/Card2" unique_id=77150957]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.017, 0)
+material_override = SubResource("StandardMaterial3D_ckjat")
+mesh = SubResource("BoxMesh_8mc33")
+
+[node name="@Label3D@11" type="Label3D" parent="Cards/Card2" unique_id=1715431733]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0085, 0.02958, 0.001)
+pixel_size = 0.0001428
+double_sided = false
+modulate = Color(0.85, 0.15, 0.2, 1)
+text = "7"
+font_size = 64
+outline_size = 0
+
+[node name="@Label3D@12" type="Label3D" parent="Cards/Card2" unique_id=500792687]
+transform = Transform3D(-1, 8.742278e-08, 0, -8.742278e-08, -1, 0, 0, 0, 1, 0.0085, 0.0044199997, 0.001)
+pixel_size = 0.0001428
+double_sided = false
+modulate = Color(0.85, 0.15, 0.2, 1)
+text = "7"
+font_size = 64
+outline_size = 0
+
+[node name="@CSGCombiner3D@13" type="CSGCombiner3D" parent="Cards/Card2" unique_id=1374670870]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0085, 0.02312, 0.001)
+material_override = SubResource("StandardMaterial3D_4qt2d")
+script = ExtResource("4_koixp")
+suit = "Diamonds"
+size = 0.00408
+depth = 0.001
+
+[node name="Card3" type="Node3D" parent="Cards" unique_id=1704686841]
+transform = Transform3D(0.95105654, 0.309017, 0, -0.309017, 0.95105654, 0, 0, 0, 1, 0, 0, 0.0075)
+
+[node name="@MeshInstance3D@14" type="MeshInstance3D" parent="Cards/Card3" unique_id=1525247873]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.017, 0)
+material_override = SubResource("StandardMaterial3D_ckjat")
+mesh = SubResource("BoxMesh_g2ju8")
+
+[node name="@Label3D@15" type="Label3D" parent="Cards/Card3" unique_id=462345787]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0085, 0.02958, 0.001)
+pixel_size = 0.0001428
+double_sided = false
+modulate = Color(0.12, 0.13, 0.2, 1)
+text = "8"
+font_size = 64
+outline_size = 0
+
+[node name="@Label3D@16" type="Label3D" parent="Cards/Card3" unique_id=1850676376]
+transform = Transform3D(-1, 8.742278e-08, 0, -8.742278e-08, -1, 0, 0, 0, 1, 0.0085, 0.0044199997, 0.001)
+pixel_size = 0.0001428
+double_sided = false
+modulate = Color(0.12, 0.13, 0.2, 1)
+text = "8"
+font_size = 64
+outline_size = 0
+
+[node name="@CSGCombiner3D@17" type="CSGCombiner3D" parent="Cards/Card3" unique_id=70618498]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0085, 0.02312, 0.001)
+material_override = SubResource("StandardMaterial3D_2sfuh")
+script = ExtResource("4_koixp")
+suit = "Clubs"
+size = 0.00408
+depth = 0.001
+
+[node name="Card4" type="Node3D" parent="Cards" unique_id=1212937335]
+transform = Transform3D(0.809017, 0.58778524, 0, -0.58778524, 0.809017, 0, 0, 0, 1, 0, 0, 0.01)
+
+[node name="@MeshInstance3D@18" type="MeshInstance3D" parent="Cards/Card4" unique_id=1885594782]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.017, 0)
+material_override = SubResource("StandardMaterial3D_ckjat")
+mesh = SubResource("BoxMesh_27wc3")
+
+[node name="@Label3D@19" type="Label3D" parent="Cards/Card4" unique_id=338008239]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0085, 0.02958, 0.001)
+pixel_size = 0.0001428
+double_sided = false
+modulate = Color(0.85, 0.15, 0.2, 1)
+text = "9"
+font_size = 64
+outline_size = 0
+
+[node name="@Label3D@20" type="Label3D" parent="Cards/Card4" unique_id=2075931196]
+transform = Transform3D(-1, 8.742278e-08, 0, -8.742278e-08, -1, 0, 0, 0, 1, 0.0085, 0.0044199997, 0.001)
+pixel_size = 0.0001428
+double_sided = false
+modulate = Color(0.85, 0.15, 0.2, 1)
+text = "9"
+font_size = 64
+outline_size = 0
+
+[node name="@CSGCombiner3D@21" type="CSGCombiner3D" parent="Cards/Card4" unique_id=157153054]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0085, 0.02312, 0.001)
+material_override = SubResource("StandardMaterial3D_bbhg1")
+script = ExtResource("4_koixp")
+size = 0.00408
+depth = 0.001
+
+[node name="@CSGCombiner3D@22" type="CSGCombiner3D" parent="Cards/Card4" unique_id=118088644]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.01428, 0.001)
+material_override = SubResource("StandardMaterial3D_bfpb1")
+script = ExtResource("4_koixp")
+size = 0.0102
+depth = 0.001

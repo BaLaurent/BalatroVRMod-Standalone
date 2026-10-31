@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_c20br"]
+[ext_resource type="Material" path="res://jokers/models/j_blackboard_mat.res" id="2_sfiyj"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_blackboard.res" id="3_h8hxy"]
+
+[node name="j_blackboard" type="Node3D" unique_id=1696810436]
+script = ExtResource("1_c20br")
+
+[node name="Model" type="Node3D" parent="." unique_id=2083916358]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=646464268]
+transform = Transform3D(0.12168294, 0.008533347, 0.0014772277, -0.008533347, 0.11459303, 0.04095557, 0.0014772277, -0.04095557, 0.11490082, 0.0071474635, 0.059083726, -0.0064686495)
+material_override = ExtResource("2_sfiyj")
+mesh = ExtResource("3_h8hxy")

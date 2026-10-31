@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_6jf6n"]
+[ext_resource type="Material" path="res://jokers/models/j_astronomer_mat.res" id="2_ot2f6"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_astronomer.res" id="3_ldi2i"]
+
+[node name="j_astronomer" type="Node3D" unique_id=1791714907]
+script = ExtResource("1_6jf6n")
+
+[node name="Model" type="Node3D" parent="." unique_id=1758409913]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=259602753]
+transform = Transform3D(0.12144684, -0.004104539, 0.000118676595, 0.004104539, 0.1212439, -0.0070190453, 0.000118676595, 0.0070190453, 0.121313296, -0.0013111572, 0.05430182, 0.010793997)
+material_override = ExtResource("2_ot2f6")
+mesh = ExtResource("3_ldi2i")

@@ -34,6 +34,7 @@ const LINES := {
 	"idle": ["Take your time... I'll wait.", "Thinking hard, huh?", "Hello? Anybody there?", "*yawn*", "Psst, play something!"],
 	"planet": ["To the stars!", "Level up!", "Ooh, shiny planet!"],
 	"glass": ["Oops, butterfingers!", "Crash!", "That was fragile..."],
+	"naneinf": ["That... is not a number.", "You BROKE it!", "naneinf?! What have you done?", "I can see the stars..."],
 	"wheel_win": ["Lucky you!", "The wheel loves you!", "Jackpot!"],
 	"wheel_nope": ["Nope!", "Haha, NOPE!", "Better luck next spin."],
 	"photo": ["Say cheese!", "Get my good side!", "Smile!", "Ooh, a photo!"],
@@ -147,17 +148,29 @@ func react(what: String, chance := 1.0) -> void:
 		_:
 			_mood = "hop"
 	_mood_time = 0.0
-	if LINES.has(what) and (_bubble_time <= 0.0 or what in ["sad", "win"]):
+	if LINES.has(what) and (_bubble_time <= 0.0 or what in ["sad", "win", "naneinf"]):
 		var lines: Array = LINES[what]
 		say(lines[randi() % lines.size()])
 
 
-func say(text: String) -> void:
+## The Wheel of Fortune hit: he cheers and says which joker got which edition (edition: "foil",
+## "holo", "polychrome", "negative" or a modded one, then its name from the game).
+func announce_edition(joker: String, edition: String, edition_name := "") -> void:
+	var e: String = {"foil": "Foil", "holo": "Holographic", "polychrome": "Polychrome", "negative": "Negative"}.get(
+		edition, edition_name if edition_name != "" else edition.capitalize())
+	var lines := ["%s is %s now!", "%s turned %s!", "Ooh, a %s %s!"]
+	var i := randi() % lines.size()
+	_mood = "cheer"
+	_mood_time = 0.0
+	say(lines[i] % ([e, joker] if i == 2 else [joker, e]), 4.5)
+
+
+func say(text: String, hold := 3.0) -> void:
 	_bubble.text = text
 	(_bubble_bg.mesh as QuadMesh).size = Vector2(maxf(text.length() * 0.026 + 0.04, 0.12), 0.08)
 	_bubble.visible = true
 	_bubble_bg.visible = true
-	_bubble_time = 3.0
+	_bubble_time = hold
 
 
 func _process(delta: float) -> void:

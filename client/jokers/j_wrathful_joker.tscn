@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_3w1x4"]
+[ext_resource type="Material" path="res://jokers/models/j_wrathful_joker_mat.res" id="2_3nkao"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_wrathful_joker.res" id="3_bqoka"]
+
+[node name="j_wrathful_joker" type="Node3D" unique_id=865993517]
+script = ExtResource("1_3w1x4")
+
+[node name="Model" type="Node3D" parent="." unique_id=1879868795]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=602719205]
+transform = Transform3D(0.12694374, -0.0013404158, 0.00011369508, 0.0013404158, 0.12513012, -0.021381699, 0.00011369508, 0.021381699, 0.12513725, -1.6032287e-05, 0.056124397, 0.0006596619)
+material_override = ExtResource("2_3nkao")
+mesh = ExtResource("3_bqoka")

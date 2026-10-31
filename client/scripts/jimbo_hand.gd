@@ -32,6 +32,8 @@ var _fingers: Array = []             # per finger: [joint1, joint2, joint3] (Nod
 var _thumb: Node3D
 var _curl := [0.0, 0.0, 0.0, 0.0]    # smoothed curl per finger (0 open .. 1 fist)
 var _thumb_down := 1.0
+var _glitch := false                 # "glitch" style: the glove's glow flickers like a broken number
+var _glitch_next := 0.0
 
 
 func _ready() -> void:
@@ -69,20 +71,31 @@ func _process(delta: float) -> void:
 	_thumb_down = lerpf(_thumb_down, 1.0 if thumb_touch else 0.0, k)
 	# thumbs up: along the handle (-Z, "up"); resting: lying forward on the controller's face
 	_thumb.rotation = Vector3(-0.2 - 1.15 * _thumb_down, -_side() * (0.25 + 0.3 * _thumb_down), 0.0)
+	if _glitch:
+		_glitch_next -= delta
+		if _glitch_next <= 0.0: # mostly a steady red and blue glow, now and then a burst of wrong colours
+			var burst := randf() < 0.25
+			_glitch_next = randf_range(0.04, 0.09) if burst else randf_range(0.4, 1.4)
+			_glove.emission = Color.from_hsv(randf(), 0.9, 1.0) if burst else (RED if left else BLUE)
+			_glove.emission_energy_multiplier = randf_range(1.5, 3.0) if burst else 0.9
 
 
 ## +1 for the left hand, -1 for the right (everything is mirrored along X).
 ## Achievement rewards for the gloves: "white" (normal), "gold" (Pack Rat), "split" (Ambidextrous:
-## the left one red, the right one blue, like Jimbo's suit), "neon" (Hand Model: they glow).
+## the left one red, the right one blue, like Jimbo's suit), "neon" (Hand Model: they glow),
+## "glitch" (Overflow: dark, glowing, flickering in wrong colours now and then).
 func set_style(style: String, metal := Color(0, 0, 0, 0)) -> void:
 	if _glove == null:
 		return
-	_glove.albedo_color = {"gold": metal if metal.a > 0.0 else GOLD, "split": RED if left else BLUE, "neon": Color(0.1, 0.12, 0.14)}.get(style, WHITE)
+	_glove.albedo_color = {"gold": metal if metal.a > 0.0 else GOLD, "split": RED if left else BLUE, "neon": Color(0.1, 0.12, 0.14),
+			"glitch": Color(0.05, 0.04, 0.07)}.get(style, WHITE)
 	_glove.metallic = 0.75 if style == "gold" else 0.0
 	_glove.roughness = 0.3 if style == "gold" else 0.55
-	_glove.emission_enabled = style == "neon"
+	_glove.emission_enabled = style == "neon" or style == "glitch"
 	_glove.emission = Color(1.0, 0.25, 0.8) if left else Color(0.2, 0.95, 1.0)
 	_glove.emission_energy_multiplier = 1.4
+	_glitch = style == "glitch"
+	_glitch_next = 0.0
 
 
 func _side() -> float:

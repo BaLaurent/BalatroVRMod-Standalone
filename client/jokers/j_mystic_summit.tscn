@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_c17ab"]
+[ext_resource type="Material" path="res://jokers/models/j_mystic_summit_mat.res" id="2_7umb2"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_mystic_summit.res" id="3_1800v"]
+
+[node name="j_mystic_summit" type="Node3D" unique_id=1441330536]
+script = ExtResource("1_c17ab")
+glow_node = NodePath("Model")
+glow_source = "float(run[\"discards_left\"] == 0)"
+glow_energy = 0.44999999999999996
+
+[node name="Model" type="Node3D" parent="." unique_id=368142117]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=463464429]
+transform = Transform3D(0.13392764, 0, 0, 0, 0.13392764, 0, 0, 0, 0.13392764, 3.652888e-05, 0.05868885, -0.008740564)
+material_override = ExtResource("2_7umb2")
+mesh = ExtResource("3_1800v")

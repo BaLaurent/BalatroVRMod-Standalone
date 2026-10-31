@@ -48,6 +48,7 @@ extends Node3D
 
 @export_group("Motion")
 @export var shake_node: NodePath       ## trembles (e.g. Gros Michel, which may spoil any round)
+@export var shake_source := ""         ## > 0.5 = trembles (e.g. DNA while active); empty = always
 @export var spin_node: NodePath
 @export var spin_speed := 0.0
 
@@ -60,6 +61,9 @@ const SUIT_COLORS := {
 var _inputs := {}
 var _time := 0.0
 var _shake_base := Vector3.ZERO
+var _shake := 0.0                      # 0..1, eases in and out when shake_source changes
+var _shake_want := 1.0
+var _spin := 0.0
 
 
 func _ready() -> void:
@@ -72,11 +76,15 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_time += delta
 	var shaker := _node(shake_node)
-	if shaker != null:
-		shaker.rotation = _shake_base + Vector3(0, 0, sin(_time * 31.0) * 0.06 * (0.5 + 0.5 * sin(_time * 2.3)))
 	var spinner := _node(spin_node)
 	if spinner != null and spin_speed != 0.0:
-		spinner.rotate_y(spin_speed * delta)
+		_spin = fmod(_spin + spin_speed * delta, TAU)
+		if spinner != shaker:
+			spinner.rotate_y(spin_speed * delta)
+	if shaker != null:
+		_shake = move_toward(_shake, _shake_want, delta * 4.0)
+		var wobble := sin(_time * 31.0) * 0.06 * (0.5 + 0.5 * sin(_time * 2.3)) * _shake
+		shaker.rotation = _shake_base + Vector3(0, _spin if spinner == shaker else 0.0, wobble)
 	_animate_count(delta)
 
 
@@ -172,6 +180,9 @@ func _apply() -> void:
 	if glow != null:
 		var g := 1.0 if glow_source == "" else clampf(_num(glow_source), 0.0, 1.0)
 		_glow(glow, g * glow_energy)
+
+	if shake_source != "":
+		_shake_want = 1.0 if _num(shake_source) > 0.5 else 0.0
 
 	var see := _node(alpha_node)
 	if see != null and alpha_source != "":

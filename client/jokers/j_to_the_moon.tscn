@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_4hr6y"]
+[ext_resource type="Material" path="res://jokers/models/j_to_the_moon_mat.res" id="2_q3mg2"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_to_the_moon.res" id="3_m0kei"]
+
+[node name="j_to_the_moon" type="Node3D" unique_id=1310836976]
+script = ExtResource("1_4hr6y")
+glow_node = NodePath("Model")
+glow_source = "clamp(run[\"dollars\"] / 40.0, 0.0, 1.0)"
+glow_energy = 0.36
+
+[node name="Model" type="Node3D" parent="." unique_id=969687332]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=52250654]
+transform = Transform3D(0.091692075, -0.038871344, 0.002529547, 0.038871344, 0.090885326, -0.012397325, 0.002529547, 0.012397325, 0.09881662, -0.0061916257, 0.055420797, -0.0045583514)
+material_override = ExtResource("2_q3mg2")
+mesh = ExtResource("3_m0kei")

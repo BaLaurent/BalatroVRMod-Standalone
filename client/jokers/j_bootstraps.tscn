@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_xj3wd"]
+[ext_resource type="Material" path="res://jokers/models/j_bootstraps_mat.res" id="2_5c3rx"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_bootstraps.res" id="3_55bek"]
+
+[node name="j_bootstraps" type="Node3D" unique_id=1606110953]
+script = ExtResource("1_xj3wd")
+glow_node = NodePath("Model")
+glow_source = "clamp(run[\"dollars\"] / 50.0, 0.0, 1.0)"
+glow_energy = 0.36
+
+[node name="Model" type="Node3D" parent="." unique_id=1251453907]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=317954050]
+transform = Transform3D(0.1093452, -0.047654305, -0.0007360425, 0.047654305, 0.109290674, 0.0035303866, -0.0007360425, -0.0035303866, 0.11922601, -0.012389251, 0.06278465, -0.0022295779)
+material_override = ExtResource("2_5c3rx")
+mesh = ExtResource("3_55bek")

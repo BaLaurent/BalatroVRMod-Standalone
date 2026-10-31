@@ -38,6 +38,10 @@ const SHOULDER_RADIUS := 0.6
 const PANEL_POS := Vector3(BOARD_HALF_WIDTH + 0.12, 0.0, 0.2)  # run panel right of the board
 const PANEL_YAW := -25.0
 const PANEL_SCALE := 0.75
+const BOARD_FORWARD := 0.30                     # the game board stands this much nearer to you than the layout's centre
+const RUN_INFO_POS := Vector3(-0.72, TABLE_Y + JOKER_TABLE_TOP + 0.184, 0.51) # the Run Info board: on the table at the left, beside the score tower (its foot on the surface)
+const RUN_INFO_YAW := 35.0                      # turned towards you
+const RUN_INFO_SCALE := 0.6
 const SHOP_POS := Vector3(0, TABLE_Y + 0.2, 0.06) # the shop's panel (Next Round ...) stands behind the sales counter
 const SHOP_TILT := -30.0                         # leaning back (-90 would lie flat on the table)
 const SHOP_SIGN_SIZE := Vector2(0.264, 0.132)  # the game's 4.4 x 2.2 sign at board scale
@@ -61,6 +65,12 @@ const JOKER_SPACING := 0.13                     # between pedestals in a row
 const JOKER_ROW_DEPTH := 0.13                   # between the two rows
 const JOKER_ROW_Z := -0.12                      # back row
 const JOKER_SCENES := "res://jokers/%s.tscn"    # one scene per joker key, e.g. j_castle.tscn
+## The player's own joker figures: <joker key>.glb / .gltf (e.g. j_popcorn.glb, "popcorn.glb" works
+## too) in one of these folders replaces the figure that comes with the game. user:// is
+## %APPDATA%\Godot\app_userdata\Balatro in VR; the second one sits next to the exe.
+const CUSTOM_JOKER_DIRS := ["user://custom_jokers/", "<exe>/custom_jokers/"]
+const CUSTOM_JOKER_HEIGHT := 0.11                # metres; like the figures that come with the game
+const CUSTOM_JOKER_MAX_WIDTH := 0.14
 const DECK_POS := Vector3(0.22, JOKER_TABLE_TOP, 0.13) # draw pile at the front right corner of the mat
 const COINS_POS := Vector3(-0.2, JOKER_TABLE_TOP, 0.14) # money at the front left corner
 const PEDESTAL_HEIGHT := 0.019                  # jokers stand on top of their wooden pedestal
@@ -73,7 +83,11 @@ const TOWER_AFTER_STATES := ["NEW_ROUND", "ROUND_EVAL", "GAME_OVER"] # the score
 const SOLATRO_PASS := ["vr_flags", "need_atlas", "slider", "menu"] # still for the game while Solatro runs
 const ROUND_STATES := ["SELECTING_HAND", "HAND_PLAYED", "DRAW_TO_HAND"] # chip only while a blind is being played
 const CHIP_HIT_RADIUS := 0.13                   # how close the hand must be to "lay cards on it"
+const FLICK_SPEED := 0.7                        # m/s: grabbed cards let go this fast towards the table are played
+const FLICK_AIM := 0.25                         # ... roughly towards the blind chip (cos of ~75 degrees) or forward, away from you
+const FLICK_WINDOW := 0.25                      # s: how far back the flick may lie when the grip opens
 const LAYOUT_FILE := "user://vr_layout.cfg"
+const PERF_RENDER_SCALE := 0.8   # performance mode: pixels per eye (each side) compared to the headset's own
 const LAYOUT_VERSION := 3                       # v2: pile + slots on the joker board, v3: board reshaped (0.5 x 0.6)
 const CALIB_GRAB_RADIUS := 0.15
 
@@ -96,7 +110,8 @@ const DECK_COLORS := {
 	"b_anaglyph": Color(0.3, 0.75, 0.8), "b_plasma": Color(0.6, 0.3, 0.85), "b_erratic": Color(0.9, 0.45, 0.15),
 }
 
-enum Backdrop { GREEN, DARK, ROOM } # DARK: a calm near-black backdrop for viewers (no chroma key)
+enum Backdrop { GREEN, DARK, ROOM, PASSTHROUGH } # DARK: a calm near-black backdrop for viewers (no chroma key)
+# PASSTHROUGH: the headset's own camera view through OpenXR alpha blending (only offered when the runtime supports it)
 
 var _server := TCPServer.new()
 var _peer: StreamPeerTCP
@@ -189,6 +204,7 @@ const JOKER_CARD_SIZE := Vector2(0.06, 0.08) # a joker without a 3D model shows 
 var _held_hand: XRController3D
 var _held_offset := Transform3D()
 var _joker_scenes := {}       # joker key -> PackedScene (or null if that joker has no 3D model)
+var _custom_joker_scenes := {} # joker key -> PackedScene from the player's custom_jokers folder (or null)
 
 var _hand_cards := {}         # scene id -> StaticBody3D in the left hand
 var _hand_items: Array = []   # latest hand card items from the scene
@@ -200,6 +216,7 @@ var _hover_time := 0.0
 var _hover_sent := false
 var _hover_area := ""
 var _hover_body = null         # the StaticBody3D the beam is on (for sliders)
+var _hovered := {}             # card ids this client sent "hover" for (and no "unhover" yet): only their tooltips show
 
 # Reordering: hold the trigger on a hand card or joker, point at another one of the same row, release
 var _drag_id := -1
@@ -217,6 +234,8 @@ var _pointer_valid := false
 
 var _grab_active := false
 var _grabbed: Array = []
+var _bundle_prev := Vector3.ZERO     # the grabbing hand last frame (for the flick towards the table)
+var _bundle_flicks: Array = []       # [time, velocity] of the grabbing hand over the last moment
 
 # Calibration: the player moves/rotates/resizes these and the result is saved
 var _calib_items := {}        # name -> Node3D
@@ -288,6 +307,7 @@ func _process(delta: float) -> void:
 	_poll_network()
 	_poll_balatro_process(delta)
 	_update_intro()
+	_ask_tutorial_atlases(delta)
 	_stars.global_position = _head.global_position if _vr else _camera.global_position # around the player
 	_stars.set_ambient(Time.get_ticks_msec() / 1000.0 < _star_shower_until) # a new star joker's shower
 	_tick_achievements(delta)
@@ -304,6 +324,7 @@ func _process(delta: float) -> void:
 	_update_held_joker()
 	_update_held_board_item()
 	_update_held_stand()
+	_update_held_run_info()
 	_animate_shop_morph(delta)
 	_animate_board_items(delta)
 	_update_sell_glow()
@@ -326,6 +347,13 @@ func _process(delta: float) -> void:
 		_test.global_transform = _table_top_xf()
 	if _solatro != null and _solatro.visible: # ... and Solatro's info board, token chips and signs
 		_solatro.global_transform = _table_top_xf()
+	if _tut_run != null and _tut_run.visible: # ... and the VR TUTORIAL's board
+		_tut_run.global_transform = _table_top_xf()
+	if _beam != null and _ach != null and _ach.reward("tutorial"): # "Tutorial Achievement": a rainbow beam
+		var rainbow := Color.from_hsv(fmod(Time.get_ticks_msec() / 2500.0, 1.0), 0.75, 1.0)
+		var beam_mat := _beam.material_override as StandardMaterial3D
+		beam_mat.albedo_color = rainbow
+		beam_mat.emission = rainbow
 	_animate_table_fun(delta)
 	_animate_game_feel(delta)
 	_animate_run_end(delta)
@@ -394,12 +422,12 @@ func _handle_message(line: String) -> void:
 		return
 	match msg.get("type", ""):
 		"scene":
-			if _solatro != null and _solatro.active:
+			if _solo_active():
 				_solatro_cache["scene"] = msg["data"] # (Solatro on the table: the game's menu waits)
 			else:
 				_apply_scene(msg["data"])
 		"state":
-			if _solatro != null and _solatro.active:
+			if _solo_active():
 				_solatro_cache["state"] = msg["data"]
 			else:
 				_apply_state(msg["data"])
@@ -415,12 +443,16 @@ func _handle_message(line: String) -> void:
 					_set_wheel(WHEEL_MODES[(WHEEL_MODES.find(_wheel_mode) + 1) % WHEEL_MODES.size()]) # "VR: Wheel of Fortune" in VR Settings
 				"wheel":
 					_show_wheel(msg["data"]) # the Wheel of Fortune card was used: spin the wheel
+				"wheel_edition":
+					_jimbo.announce_edition(str(msg["data"].get("joker", "Joker")), str(msg["data"].get("edition", "")), str(msg["data"].get("edition_name", ""))) # the wheel hit: Jimbo says which joker got what
 				"toggle_ambience":
 					_set_ambience(not _ambience_on) # "VR: Casino Sounds" in VR Settings
 				"floor_height":
 					_set_floor(float(msg["data"].get("cm", 0.0))) # "VR: Casino Floor Height" in VR Settings
 				"toggle_jimbo":
 					_set_jimbo(not _jimbo_on) # "VR: Jimbo" in VR Settings
+				"toggle_jokers_3d":
+					_cycle_jokers_3d() # "VR: 3D Jokers" in VR Settings
 				"toggle_hands":
 					_set_hands(not _hands_on) # "VR: Hands" in the game's Options menu
 				"cycle_spectator":
@@ -472,7 +504,9 @@ func _handle_message(line: String) -> void:
 		"atlas":
 			IntroCards.remember_atlas(msg["data"])
 			CardArt.add_atlas(msg["data"])
-			if _solatro != null and _solatro.active:
+			if _tut_run != null and _tut_run.active:
+				_tut_run.redraw() # the tutorial's cards and Jimbo's picture
+			elif _solatro != null and _solatro.active:
 				_solatro.redraw() # Solatro's own cards: drawn again, a picture may have been missing (slow PCs)
 			elif not _last_scene.is_empty():
 				_apply_scene(_last_scene) # redraw with the new textures right away
@@ -515,7 +549,7 @@ func _apply_scene(scene: Dictionary) -> void:
 	_board.apply_scene(scene)
 	_update_bag_counts(scene) # "JOKERS 3/5", "CONSUMABLES 1/2" on the card stand
 	if _counter != null and _vr: # the shop's items on the sales counter
-		_counter.sync(scene.get("items", []), int(_state.get("round", {}).get("dollars", 0)))
+		_counter.sync(scene.get("items", []), _spendable())
 	for uid in _jokers: # card art for jokers without a 3D model (comes with the scene)
 		if is_instance_valid(_jokers[uid]):
 			_refresh_card_stand(_jokers[uid], uid)
@@ -523,6 +557,11 @@ func _apply_scene(scene: Dictionary) -> void:
 
 
 func _send(command: Dictionary) -> void:
+	var how := _gesture
+	_gesture = ""
+	if _tut_run != null and _tut_run.active and not SOLATRO_PASS.has(str(command.get("cmd", ""))):
+		_tut_run.command(command, how) # play, discard, sort, buy ... are the tutorial's now (and how they were done)
+		return
 	if _solatro != null and _solatro.active and not SOLATRO_PASS.has(str(command.get("cmd", ""))):
 		_solatro.command(command) # play, discard, click, buy ... are Solatro's now, not the game's
 		return
@@ -711,7 +750,7 @@ func _apply_state(state: Dictionary) -> void:
 	var blind: Dictionary = state.get("blind", {})
 	_set_sprite_face(_chip_front, blind.get("sprite"), Vector2.ONE * CHIP_RADIUS * 2.0)
 	_set_sprite_face(_chip_back, state.get("stake_sprite"), Vector2.ONE * CHIP_RADIUS * 2.0)
-	_set_chip_text(str(blind.get("chip_text", "")))
+	_set_chip_text(str(blind.get("chip_text", "")), str(blind.get("chip_title", "SOLATRO")))
 	_set_chip_back_text(str(blind.get("chip_back", "")))
 	# only during a round; in the shop, blind select, cash-out or packs it would just be in the way
 	_chip.visible = (in_run and ROUND_STATES.has(str(state.get("state_name", "")))) or _calibrating or _chip_defeat_t >= 0.0
@@ -719,11 +758,13 @@ func _apply_state(state: Dictionary) -> void:
 	# after the blind (cash out, game over, the win screen) it stays with the blind's last score, so you
 	# see by how much you overscored or how much was missing; it goes with the shop / next blind select
 	var sname := str(state.get("state_name", ""))
+	# the score overflowed: the game shows "naneinf" (JSON has no inf, the score itself comes as 0)
+	var naneinf: bool = in_run and not state.get("solatro", false) and bool(state.get("round", {}).get("naneinf", false))
 	if in_run and ROUND_STATES.has(sname):
-		_tower_last = [float(state.get("round", {}).get("chips", 0)), float(blind.get("chips", 0))]
+		_tower_last = [INF if naneinf else float(state.get("round", {}).get("chips", 0)), float(blind.get("chips", 0))]
 		_score_tower.visible = true
 		_tower_judged = false
-	elif in_run and sname in ["NEW_ROUND", "ROUND_EVAL"] and not _tower_judged and not _tower_last.is_empty() and not _solatro.active:
+	elif in_run and sname in ["NEW_ROUND", "ROUND_EVAL"] and not _tower_judged and not _tower_last.is_empty() and not _solo_active():
 		_tower_judged = true # the blind was beaten: by how much?
 		var final_score: float = _tower_last[0]
 		if float(blind.get("chips", 0)) == _tower_last[1]:
@@ -739,10 +780,20 @@ func _apply_state(state: Dictionary) -> void:
 		if not _score_tower.visible:
 			_tower_last = []
 	_score_tower.visible = _score_tower.visible or _calibrating
+	# the Run Info's blinds on their own board: all through the run, but not on the game's blind
+	# select (that shows them itself, with its Select / Skip buttons)
+	var run_blinds = state.get("run_blinds") if in_run and not _solo_active() else null
+	_run_info.visible = run_blinds is Array and not (run_blinds as Array).is_empty() and (sname != "BLIND_SELECT" or _calibrating)
+	if _run_info.visible:
+		_run_info.set_data(run_blinds, int(state.get("round", {}).get("ante", 0)))
 	if not _tower_last.is_empty():
 		_score_tower.set_score(_tower_last[0], _tower_last[1])
 		if _casino != null and _casino._boss_room != null and _tower_last[1] > 0.0: # (Violet Vessel's chalice)
 			_casino._boss_room.vessel_fill = _tower_last[0] / _tower_last[1]
+	if naneinf and not _naneinf_was:
+		_on_naneinf(true)
+	_naneinf_was = naneinf
+	_score_tower.set_naneinf(not _tower_last.is_empty() and is_inf(float(_tower_last[0]))) # (broken until the shop)
 
 	# Draw pile: deck colour, height = cards left, back art on top
 	var deck: Dictionary = state.get("deck", {})
@@ -761,12 +812,13 @@ func _apply_state(state: Dictionary) -> void:
 	_joker_table.visible = in_run or _calibrating
 	# Solatro needs no card stand for consumables, no chip mountain, nothing to sell and no rerolls
 	var solatro: bool = state.get("solatro", false)
-	_bag.visible = not solatro or _calibrating
+	var tutorial: bool = state.get("tutorial", false) # (the VR TUTORIAL: like Solatro, but with the card stand and selling)
+	_bag.visible = not solatro or tutorial or _calibrating
 	_coin_slot.visible = true # (Solatro: only for throwing cards away - "DISCARD")
-	if _slot_solatro != solatro:
-		_slot_solatro = solatro
+	if _slot_solatro != (solatro and not tutorial):
+		_slot_solatro = solatro and not tutorial
 		_sell_armed = true # (the label is set anew below)
-	_lever.visible = not solatro or _calibrating
+	_lever.visible = not solatro or tutorial or _calibrating # (the VR TUTORIAL has a reroll page)
 	_casino.set_mountains_visible(not solatro)
 	# the main menu: in VR it is the casino table (buzzer, stack, album, ...), not the flat panel
 	var menu = state.get("menu")
@@ -796,6 +848,8 @@ func _apply_state(state: Dictionary) -> void:
 	_update_jokers(state)
 	_update_card_stats(state)
 	_update_keyboard(state)
+	if _photo != null: # test mode: feedback photos go to their own folder (a comment comes with them)
+		_photo.folder = "Photos/Feedback" if state.get("test_mode", false) else "Photos"
 
 	# a star joker (Supernova, Satellite, Constellation) bought or gained: the room twinkles for
 	# STAR_SHOWER_SECONDS, then it's quiet again (a run that already has one starts quiet)
@@ -833,7 +887,7 @@ func _apply_state(state: Dictionary) -> void:
 
 
 ## Solatro's blind chip: SOLATRO in green neon on a dark face, the round underneath ("" = none).
-func _set_chip_text(sub: String) -> void:
+func _set_chip_text(sub: String, title := "SOLATRO") -> void:
 	var face := _chip_front.get_node_or_null("SolatroFace") as Node3D
 	if sub == "":
 		if face != null:
@@ -855,16 +909,16 @@ func _set_chip_text(sub: String) -> void:
 		m.roughness = 0.6
 		disc.material_override = m
 		face.add_child(disc)
-		var title := Label3D.new()
-		title.name = "Title"
-		title.text = "SOLATRO"
-		title.font_size = 48
-		title.pixel_size = 0.00042
-		title.modulate = Color(0.5, 1.8, 0.9)
-		title.outline_size = 6
-		title.outline_modulate = Color(0.02, 0.1, 0.05)
-		title.position = Vector3(0, 0.005, 0.0012)
-		face.add_child(title)
+		var title_label := Label3D.new()
+		title_label.name = "Title"
+		title_label.text = "SOLATRO"
+		title_label.font_size = 48
+		title_label.pixel_size = 0.00042
+		title_label.modulate = Color(0.5, 1.8, 0.9)
+		title_label.outline_size = 6
+		title_label.outline_modulate = Color(0.02, 0.1, 0.05)
+		title_label.position = Vector3(0, 0.005, 0.0012)
+		face.add_child(title_label)
 		var round_label := Label3D.new()
 		round_label.name = "Round"
 		round_label.font_size = 28
@@ -875,6 +929,7 @@ func _set_chip_text(sub: String) -> void:
 		face.add_child(round_label)
 		GameFont.apply_to(face)
 	face.visible = true
+	(face.get_node("Title") as Label3D).text = title # (SOLATRO, or TUTORIAL)
 	(face.get_node("Round") as Label3D).text = sub
 
 
@@ -925,10 +980,189 @@ func _set_sprite_face(face: Node3D, sprite, size: Vector2) -> void:
 # ---------------------------------------------------------------- augmented jokers on the joker board
 
 func _joker_scene(key: String) -> PackedScene:
+	if not _jokers_3d:
+		return null # "3D Jokers: Off": every joker shows its card (board and collection)
+	if not _custom_joker_scenes.has(key):
+		_custom_joker_scenes[key] = _custom_joker_scene(key)
+	if _custom_joker_scenes[key] != null:
+		return _custom_joker_scenes[key]
+	if _jokers_custom_only:
+		return null # "3D Jokers: Custom Only": only the player's own models, the rest show their card
 	if not _joker_scenes.has(key):
 		var path := JOKER_SCENES % key
 		_joker_scenes[key] = load(path) if ResourceLoader.exists(path) else null
 	return _joker_scenes[key]
+
+
+## The folders players put their own joker models into (the one in user:// is made on the first
+## look, with a short note what goes in there).
+func _custom_joker_dirs() -> Array:
+	var dirs := []
+	for d in CUSTOM_JOKER_DIRS:
+		if d.begins_with("<exe>"):
+			if OS.has_feature("editor"):
+				continue # (the exe is Godot itself: only user://)
+			d = d.replace("<exe>", OS.get_executable_path().get_base_dir())
+		dirs.append(d)
+	var mine: String = dirs[0]
+	if not DirAccess.dir_exists_absolute(mine):
+		DirAccess.make_dir_recursive_absolute(mine)
+		var note := FileAccess.open(mine.path_join("README.txt"), FileAccess.WRITE)
+		if note != null:
+			note.store_string("Your own joker figures for Balatro in VR\n\n"
+				+ "Put a 3D model (.glb or .gltf) in this folder and name it after the joker's key,\n"
+				+ "e.g. j_popcorn.glb (Popcorn) or j_selzer.glb (Seltzer). It replaces the figure that\n"
+				+ "comes with the game the next time Balatro in VR starts.\n\n"
+				+ "The model is stood upright on its pedestal and scaled to 11 cm (at most 14 cm wide).\n"
+				+ "Optional: j_popcorn.json next to it, e.g. {\"height\": 0.15, \"rotation\": [0, 90, 0]}\n"
+				+ "(height in metres, rotation in degrees around X, Y, Z before scaling).\n")
+	return dirs
+
+
+## A joker model from the player's folder as a scene, or null if there is none (or it can't be read).
+func _custom_joker_scene(key: String) -> PackedScene:
+	if key == "":
+		return null
+	for dir in _custom_joker_dirs():
+		for base in [key, key.trim_prefix("j_")]:
+			for ext in ["glb", "gltf"]:
+				var path: String = dir.path_join("%s.%s" % [base, ext])
+				if not FileAccess.file_exists(path):
+					continue
+				var scene := _load_custom_joker(key, path)
+				if scene != null:
+					print("Custom joker model for %s: %s" % [key, ProjectSettings.globalize_path(path)])
+					return scene
+	return null
+
+
+func _load_custom_joker(key: String, path: String) -> PackedScene:
+	var doc := GLTFDocument.new()
+	var gltf := GLTFState.new()
+	if doc.append_from_file(path, gltf) != OK:
+		push_warning("Custom joker model can't be read: " + path)
+		return null
+	var model := doc.generate_scene(gltf) as Node3D
+	if model == null:
+		push_warning("Custom joker model has no 3D content: " + path)
+		return null
+	var opts := {}
+	var json_path := path.get_basename() + ".json"
+	if FileAccess.file_exists(json_path):
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string(json_path))
+		if parsed is Dictionary:
+			opts = parsed
+		else:
+			push_warning("Custom joker options can't be read: " + json_path)
+	var rot = opts.get("rotation", [0, 0, 0])
+	var basis := Basis.IDENTITY
+	if rot is Array and rot.size() == 3:
+		basis = Basis.from_euler(Vector3(deg_to_rad(float(rot[0])), deg_to_rad(float(rot[1])), deg_to_rad(float(rot[2]))))
+	# outline of all meshes (the nodes aren't in the tree yet: their transforms are chained by hand)
+	var lo := Vector3(INF, INF, INF)
+	var hi := -lo
+	var top := Transform3D(basis, Vector3.ZERO)
+	var todo := [[model, top * model.transform]]
+	while not todo.is_empty():
+		var item: Array = todo.pop_back()
+		var node: Node = item[0]
+		var xf: Transform3D = item[1]
+		var mi := node as MeshInstance3D
+		if mi != null and mi.mesh != null:
+			var skel := mi.get_node_or_null(mi.skeleton) as Skeleton3D
+			if mi.skin != null and skel != null:
+				# a rigged model (e.g. from Sketchfab): its vertices go where the bones put them,
+				# the mesh node's own transform doesn't count
+				var box := _skinned_box(mi, skel, top * _xf_up_to(skel, model))
+				lo = lo.min(box.position)
+				hi = hi.max(box.end)
+			else:
+				var box := xf * mi.mesh.get_aabb()
+				lo = lo.min(box.position)
+				hi = hi.max(box.end)
+		for child in node.get_children():
+			if child is Node3D:
+				todo.append([child, xf * (child as Node3D).transform])
+	if lo.x == INF or hi.y - lo.y <= 0.0:
+		push_warning("Custom joker model has no meshes: " + path)
+		model.free()
+		return null
+	var k := float(opts.get("height", CUSTOM_JOKER_HEIGHT)) / (hi.y - lo.y)
+	var width := maxf(hi.x - lo.x, hi.z - lo.z) * k
+	if width > CUSTOM_JOKER_MAX_WIDTH and not opts.has("height"):
+		k *= CUSTOM_JOKER_MAX_WIDTH / width
+	var mid := Vector3((lo.x + hi.x) * 0.5, lo.y, (lo.z + hi.z) * 0.5)
+	# the root is an augmented joker without effects: edition shine and own materials per instance
+	var root := Node3D.new()
+	root.name = key
+	root.set_script(load("res://jokers/augmented_joker.gd"))
+	root.set_meta("custom_joker", key)
+	# its true outline after scaling (a rigged model's mesh bounds say nothing: see _skinned_box)
+	root.set_meta("bounds", AABB(Vector3(lo.x - mid.x, 0.0, lo.z - mid.z) * k, (hi - lo) * k))
+	root.add_child(model)
+	model.name = "Model"
+	model.transform = Transform3D(basis.scaled(Vector3.ONE * k), -mid * k) * model.transform
+	_own_all(model, root)
+	var scene := PackedScene.new()
+	var err := scene.pack(root)
+	root.free()
+	if err != OK:
+		push_warning("Custom joker model can't be used: " + path)
+		return null
+	return scene
+
+
+## A node's transform relative to the root of its model, the root's own transform included.
+func _xf_up_to(node: Node, root: Node) -> Transform3D:
+	var xf := Transform3D()
+	var n := node
+	while n != null:
+		if n is Node3D:
+			xf = (n as Node3D).transform * xf
+		if n == root:
+			break
+		n = n.get_parent()
+	return xf
+
+
+## Outline of a skinned mesh in the pose its skeleton stands in (skel_xf: the skeleton in model space).
+func _skinned_box(mi: MeshInstance3D, skel: Skeleton3D, skel_xf: Transform3D) -> AABB:
+	var skin := mi.skin
+	var binds := []
+	for b in skin.get_bind_count():
+		var bone := skin.get_bind_bone(b)
+		if bone < 0:
+			bone = skel.find_bone(skin.get_bind_name(b))
+		binds.append(skel_xf * (skel.get_bone_global_pose(bone) if bone >= 0 else Transform3D()) * skin.get_bind_pose(b))
+	var lo := Vector3(INF, INF, INF)
+	var hi := -lo
+	for surface in mi.mesh.get_surface_count():
+		var arrays := mi.mesh.surface_get_arrays(surface)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES] if arrays[Mesh.ARRAY_BONES] != null else PackedInt32Array()
+		var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS] if arrays[Mesh.ARRAY_WEIGHTS] != null else PackedFloat32Array()
+		if verts.is_empty() or bones.size() != weights.size() or bones.size() < verts.size():
+			continue
+		var per: int = bones.size() / verts.size()
+		var step := maxi(1, verts.size() / 40000) # (a huge mesh: every n-th vertex is enough)
+		for i in range(0, verts.size(), step):
+			var p := Vector3.ZERO
+			for j in per:
+				var w := weights[i * per + j]
+				var b := bones[i * per + j]
+				if w > 0.0 and b < binds.size():
+					p += ((binds[b] as Transform3D) * verts[i]) * w
+			lo = lo.min(p)
+			hi = hi.max(p)
+	if lo.x == INF:
+		return skel_xf * mi.mesh.get_aabb()
+	return AABB(lo, hi - lo)
+
+
+func _own_all(node: Node, owner_node: Node) -> void:
+	node.owner = owner_node
+	for child in node.get_children():
+		_own_all(child, owner_node)
 
 
 ## Every joker stands on the joker board: its 3D model if there is one, otherwise its card on a
@@ -947,19 +1181,7 @@ func _update_jokers(state: Dictionary) -> void:
 			var inst = _jokers.get(uid)
 			if inst == null or not is_instance_valid(inst):
 				inst = _make_pedestal()
-				var scene := _joker_scene(str(j.get("key", "")))
-				# each joker gets its own fixed random turn, so some have to be walked around
-				var rng := RandomNumberGenerator.new()
-				rng.seed = uid
-				if scene != null:
-					var model := scene.instantiate()
-					model.position.y = PEDESTAL_HEIGHT
-					inst.add_child(model)
-					inst.set_meta("model", model)
-					inst.set_meta("yaw", deg_to_rad(rng.randf_range(-70.0, 70.0)))
-				else: # no 3D model: the joker's card stands on the pedestal (only a slight turn: readable)
-					inst.add_child(_make_card_stand())
-					inst.set_meta("yaw", deg_to_rad(rng.randf_range(-20.0, 20.0)))
+				_fill_pedestal(inst, str(j.get("key", "")), uid)
 				inst.set_meta("slot", int(j.get("slot", 1)))
 				_joker_table.add_child(inst)
 				_jokers[uid] = inst
@@ -998,6 +1220,67 @@ func _update_jokers(state: Dictionary) -> void:
 			_jokers.erase(uid)
 	_joker_order = game_order
 	_follow_game_order(game_order)
+
+
+## What stands on a joker's pedestal: its 3D model if it has one (and "3D Jokers" is on),
+## otherwise its card on a little stand. Run again on every joker when the setting is switched
+## (the joker keeps its place on the board).
+func _fill_pedestal(inst: Node3D, key: String, uid: int) -> void:
+	var old = inst.get_meta("model") if inst.has_meta("model") else null
+	for n in [old, inst.get_node_or_null("CardStand")]:
+		if n is Node3D and is_instance_valid(n):
+			inst.remove_child(n) # (out at once: the new one takes the name "CardStand")
+			n.queue_free()
+	inst.remove_meta("model")
+	inst.remove_meta("edition") # (the new model gets its edition shine on the next update)
+	var scene := _joker_scene(key)
+	# each joker gets its own fixed random turn, so some have to be walked around
+	var rng := RandomNumberGenerator.new()
+	rng.seed = uid
+	if scene != null:
+		var model := scene.instantiate()
+		model.position.y = PEDESTAL_HEIGHT
+		inst.add_child(model)
+		inst.set_meta("model", model)
+		inst.set_meta("yaw", deg_to_rad(rng.randf_range(-70.0, 70.0)))
+	else: # no 3D model: the joker's card stands on the pedestal (only a slight turn: readable)
+		inst.add_child(_make_card_stand())
+		inst.set_meta("yaw", deg_to_rad(rng.randf_range(-20.0, 20.0)))
+
+
+## "3D Jokers": On / Custom Only / Off, in that order.
+const JOKERS_3D_MODES := ["On", "Custom Only", "Off"]
+
+
+func _jokers_3d_mode() -> String:
+	if not _jokers_3d:
+		return "Off"
+	return "Custom Only" if _jokers_custom_only else "On"
+
+
+func _cycle_jokers_3d() -> void:
+	var next: String = JOKERS_3D_MODES[(JOKERS_3D_MODES.find(_jokers_3d_mode()) + 1) % JOKERS_3D_MODES.size()]
+	_set_jokers_3d(next != "Off", next == "Custom Only")
+
+
+## "3D Jokers": the joker figures on the board, only the player's own figures (the rest show their
+## cards), or only cards (switched live).
+func _set_jokers_3d(on: bool, custom_only := false) -> void:
+	_jokers_3d = on
+	_jokers_custom_only = on and custom_only
+	for uid in _jokers:
+		var inst = _jokers[uid]
+		if is_instance_valid(inst):
+			_fill_pedestal(inst, str(inst.get_meta("key", "")), int(uid))
+	if not _state.is_empty():
+		_update_jokers(_state) # card art, editions, face-down, value texts on the new contents
+	var cfg := ConfigFile.new()
+	cfg.load(LAYOUT_FILE)
+	cfg.set_value("settings", "jokers_3d", on)
+	cfg.set_value("settings", "jokers_custom_only", _jokers_custom_only)
+	cfg.save(LAYOUT_FILE)
+	_send_flags()
+	_set_status("3D jokers: " + _jokers_3d_mode().to_lower())
 
 
 ## Editions on the 3D joker models, after the card shaders: foil, holo and polychrome shine over
@@ -1448,6 +1731,33 @@ func _update_held_stand() -> void:
 		return
 	_play_stand.global_transform = _held_stand_hand.global_transform * _held_stand_xf # (any place, any tilt ...
 	_snap_to_table(_play_stand, _held_stand_hand) # ... but close to the table it clicks onto it, level)
+
+
+## The Run Info board is gripped anywhere on it and goes where the hand takes it (any place, any
+## tilt). Saved with the layout ("Run-Info").
+var _held_info_hand: XRController3D = null
+var _held_info_xf := Transform3D()
+
+
+func _try_grab_run_info(hand: XRController3D) -> bool:
+	if not _vr or _held_info_hand != null or _run_info == null or not _run_info.is_visible_in_tree() or _calibrating:
+		return false
+	if not _run_info.reaches(hand.global_position):
+		return false
+	_held_info_hand = hand
+	_held_info_xf = hand.global_transform.affine_inverse() * _run_info.global_transform
+	_buzz_hand(hand, 0.2, 0.03)
+	return true
+
+
+func _update_held_run_info() -> void:
+	if _held_info_hand == null:
+		return
+	if not is_instance_valid(_held_info_hand) or not _run_info.is_visible_in_tree():
+		_held_info_hand = null # (the blind select came: it stays where it was)
+		_save_layout()
+		return
+	_run_info.global_transform = _held_info_hand.global_transform * _held_info_xf
 
 
 ## Board items may go anywhere on the mat (jokers keep to the middle, see _clamp_to_joker_zone).
@@ -2154,7 +2464,7 @@ func _update_pointer(target: Dictionary, delta: float) -> void:
 	var id: int = target.get("id", -1)
 	if id != _hover_id:
 		if _hover_sent:
-			_send({"cmd": "unhover", "target": _hover_id})
+			_send_unhover(_hover_id)
 		_hover_id = id
 		_hover_kind = target.get("kind", "")
 		_hover_area = target.get("area", "")
@@ -2173,8 +2483,24 @@ func _update_pointer(target: Dictionary, delta: float) -> void:
 	elif id >= 0 and not _hover_sent and _hover_kind in ["card", "tip", "shopitem"]:
 		_hover_time += delta
 		if _hover_time >= HOVER_DELAY:
-			_send({"cmd": "hover", "target": id})
+			_send_hover(id)
 			_hover_sent = true
+
+
+func _send_hover(id: int) -> void:
+	_hovered[id] = true
+	_send({"cmd": "hover", "target": id})
+
+
+func _send_unhover(id: int) -> void:
+	_hovered.erase(id)
+	_send({"cmd": "unhover", "target": id})
+
+
+## Board callback: the game shows a card's tooltip also when the PC's mouse cursor rests on that card
+## in the Balatro window (or a joker slides under it) - only tooltips this client asked for are drawn.
+func _popup_wanted(owner_id: int) -> bool:
+	return _hovered.has(owner_id)
 
 
 func _click(id: int) -> void:
@@ -2203,6 +2529,7 @@ func _press_target(target: Dictionary) -> void:
 		_buzz(0.4, 0.05)
 	elif target.get("kind", "") == "sort":
 		if _sort_button != null and _sort_button.visible:
+			_gesture = "turn"
 			_sort_from_hand() # the SORT button over the card hand turned on its side
 			_buzz(0.3, 0.04)
 	elif target.get("kind", "") == "wrist":
@@ -2218,7 +2545,10 @@ func _press_target(target: Dictionary) -> void:
 			_new_run.press(id)
 			_buzz(0.3, 0.04)
 	elif target.get("kind", "") == "kbd":
-		if _keyboard != null and _keyboard.visible: # a key of the keyboard for the seed / a profile name
+		if _comment_kbd != null and _comment_kbd.visible: # a key of the keyboard for a photo's comment (test mode)
+			_comment_kbd.press(id)
+			_buzz(0.15, 0.02)
+		elif _keyboard != null and _keyboard.visible: # a key of the keyboard for the seed / a profile name
 			_keyboard.press(id)
 			_buzz(0.15, 0.02)
 	elif target.get("kind", "") == "collect":
@@ -2240,18 +2570,21 @@ func _press_target(target: Dictionary) -> void:
 		if _solatro != null and _solatro.visible: # EXIT, PLAY AGAIN, MENU, or a token chip (= use it)
 			_solatro.press(id)
 			_buzz(0.3, 0.04)
+	elif target.get("kind", "") == "vrtut":
+		if _tut_run != null and _tut_run.visible: # EXIT, NEXT SLIDE, the hand choice ... on the tutorial's board
+			_tut_run.press(id)
+			_buzz(0.3, 0.04)
 	elif target.get("kind", "") == "menu":
 		if _main_menu != null and _main_menu.visible: # buzzer, stack, album, bell, signs on the menu table
 			_main_menu.press(_main_menu.action_for(id))
-	elif target.get("kind", "") == "tutorial":
-		if _tutorial != null and _tutorial.visible:
-			_tutorial.press(id) # "Next" / "Skip" on Jimbo's tips
 	elif target.get("kind", "") == "consumable":
+		_gesture = "laser"
 		_use_consumable(id, false) # trigger on a tarot / planet / spectral card in the rack
 	elif target.get("kind", "") == "shopitem" and _counter != null and _counter.has_item(id):
 		_counter.select(id) # selected: its BUY (and BUY & USE) buttons appear in front of it
 		_buzz(0.2, 0.03)
 	elif target.get("kind", "") == "shopbuy" and _counter != null:
+		_gesture = "button"
 		_counter_result(_counter.press_buy(id), null)
 	else:
 		_click(id)
@@ -2283,7 +2616,7 @@ func _release_target(target: Dictionary) -> void:
 	if _drag_armed and _drop_target >= 0:
 		_send({"cmd": "move", "target": _drag_id, "to": _drop_target})
 		_buzz(0.25, 0.04)
-		if was_hand and not (_solatro != null and _solatro.active): # (Solatro has already moved it)
+		if was_hand and not _solo_active(): # (Solatro / the tutorial have already moved it)
 			_hand_items = _moved(_hand_items, _drag_id, _drop_target) # keep the preview until the game confirms
 	elif not _drag_armed or released_on == _drag_id:
 		_select(_drag_id) # a tap (or held without moving): select
@@ -2300,7 +2633,7 @@ func _release_target(target: Dictionary) -> void:
 func _select(id: int) -> void:
 	_click(id)
 	_buzz(0.35, 0.05)
-	if _solatro != null and _solatro.active:
+	if _solo_active():
 		return # Solatro answers at once: its scene already shows the card selected (flipping it again would undo that)
 	if str(_state.get("blind", {}).get("key", "")) == "bl_final_bell":
 		return # Cerulean Bell keeps one card selected: the game decides, no quick flip that it would undo
@@ -2412,6 +2745,101 @@ func _leave_solatro() -> void:
 	_apply_scene(scene) # (an empty one too: the Solatro cards leave the hand)
 
 
+## The VR TUTORIAL's pictures (cards, jokers, Jimbo's card ...) come from the game, which only sends
+## what it is asked for. The ask at the start is lost when the game wasn't connected yet (or
+## reconnects): so while the tutorial runs without the joker pictures, ask again every 3 s.
+var _tut_atlas_wait := 0.0
+func _ask_tutorial_atlases(delta: float) -> void:
+	if _tut_run == null or not _tut_run.active or not _connected or CardArt.has_atlas("Joker"):
+		_tut_atlas_wait = 0.0
+		return
+	_tut_atlas_wait -= delta
+	if _tut_atlas_wait <= 0.0:
+		_tut_atlas_wait = 3.0
+		_send({"cmd": "need_atlas", "names": "cards_1 centers Joker Tarot Booster blind_chips"}) # (one string: commands are flat)
+
+
+## Solatro or the VR TUTORIAL is running: the game waits in its menu, its commands go to them.
+func _solo_active() -> bool:
+	return (_solatro != null and _solatro.active) or (_tut_run != null and _tut_run.active)
+
+
+## VR-TUTORIAL from the menu table: Jimbo's board goes through the moves one by one. Played here in
+## the client like Solatro (TutorialRun); the game's scene and state wait in _solatro_cache.
+func _start_vr_tutorial() -> void:
+	if _first_hint != null and is_instance_valid(_first_hint):
+		_first_hint.queue_free() # found it
+	_send({"cmd": "need_atlas", "names": "cards_1 centers Joker Tarot Booster blind_chips"}) # (one string: commands are flat)
+	_solatro_cache = {"scene": _last_scene, "state": _state}
+	_new_run_open = false
+	_tut_run.left_handed = _left_handed
+	_tut_run.desktop = not _vr # (on the PC any way counts)
+	_board.visible = false
+	_tut_run.start()
+
+
+## The tutorial's cards, jokers ... as they stand in the room (for its stand-in texts).
+func _tut_node(kind: String, id: int) -> Node3D:
+	var node = null
+	match kind:
+		"hand":
+			node = _hand_cards.get(id)
+		"play":
+			node = _play_cards.get(id)
+		"joker":
+			node = _jokers.get(id)
+		"shop":
+			node = _counter.item_node(id) if _counter != null else null
+		"use":
+			node = _consumables.get(id)
+		"pack":
+			node = _pack
+	if node == null or not is_instance_valid(node) or not (node is Node3D):
+		return null # (gone already)
+	return node as Node3D
+
+
+## A move done right in the tutorial: a bright chime; the wrong way: a dull one (the game's sounds).
+func _tut_sound(right: bool) -> void:
+	var codes := ["tarot1", "multhit1"] if right else ["cancel", "crumple1"]
+	for code in codes:
+		if _sounds.has_sound(code):
+			_sounds.play({"code": code, "per": 1.0 if right else 0.8, "vol": 0.6, "at": _tut_run.global_position + Vector3(0, 0.3, 0), "own": true})
+			return
+
+
+## The tutorial's ADJUST page: the score tower stands in the middle of the table to practise on;
+## afterwards (on: false) Adjust VR Layout is closed and the layout is put back as it was.
+var _tut_layout_saved := {}         # item label -> its transform before the ADJUST page
+func _tut_layout(on: bool) -> void:
+	if on:
+		_tut_layout_saved = {}
+		for label in _calib_items:
+			_tut_layout_saved[label] = _calib_items[label].transform
+		var middle := _table_top_xf() * Vector3(0.0, 0.0, -0.12)
+		_score_tower.global_position = middle
+		return
+	if _tut_layout_saved.is_empty():
+		return
+	if _calibrating:
+		_set_calibrating(false)
+	for label in _tut_layout_saved:
+		if _calib_items.has(label):
+			_calib_items[label].transform = _tut_layout_saved[label]
+	_tut_layout_saved = {}
+	_save_layout()
+
+
+func _leave_vr_tutorial() -> void:
+	_tut_run.stop()
+	_board.visible = true
+	var state: Dictionary = _solatro_cache.get("state", {})
+	var scene: Dictionary = _solatro_cache.get("scene", {})
+	_solatro_cache = {}
+	_apply_state(state)
+	_apply_scene(scene) # (an empty one too: the tutorial's cards and jokers leave the table)
+
+
 ## Solatro's best round: read (value < 0) or saved.
 func _solatro_best(value: int) -> int:
 	var cfg := ConfigFile.new()
@@ -2453,6 +2881,8 @@ func _on_menu_action(action: String) -> void:
 	match action:
 		"solatro":
 			_start_solatro()
+		"tutorial":
+			_start_vr_tutorial()
 		"quit_vr", "quit_both":
 			if _session_blind_won:
 				_ach.add("safe_travels") # a blind won in this session, then quit the proper way
@@ -2588,9 +3018,11 @@ func _on_pointer_button(button_name: String) -> void:
 		"ax_button":
 			_ach.reset("card_sharp") # (played with the button: the streak starts again)
 			_jimbo_play()
+			_gesture = "button"
 			_send({"cmd": "play"})
 		"by_button":
 			_jimbo_discard() # (before sending: Solatro answers at once and the count would already be down)
+			_gesture = "button"
 			_send({"cmd": "discard"})
 
 
@@ -2599,8 +3031,9 @@ func _on_holder_button(button_name: String) -> void:
 		"grip_click":
 			if _calibrating:
 				_calib_grab(_holder) # e.g. the grabbed-cards spot on the pointing hand
-			else:
-				_grip_table(_holder)
+			elif not _grip_table(_holder) and not _hand_cards.is_empty():
+				_gesture = "grip"
+				_sort_from_hand() # nothing within reach to grab: the card hand's grip sorts the cards
 		"by_button":
 			if _calibrating:
 				_reset_layout()
@@ -2608,6 +3041,7 @@ func _on_holder_button(button_name: String) -> void:
 				_place_layout()
 		"primary_click":
 			if not _calibrating:
+				_gesture = "stick"
 				_sort_from_hand() # stick click on the card hand
 
 
@@ -2617,6 +3051,17 @@ func _toggle_sort() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and _comment_photo != "": # typing a photo's comment on the PC keyboard
+		match event.keycode:
+			KEY_BACKSPACE:
+				_comment_key("backspace", false)
+			KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE:
+				_close_comment()
+			_:
+				if event.unicode >= 32:
+					_comment_text += char(event.unicode)
+					_show_comment()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_P:
@@ -2638,6 +3083,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_R:
 				if _vr:
 					_place_layout()
+			KEY_N:
+				_test_naneinf() # test: the naneinf moment
 	elif event is InputEventMouseMotion and _camera != null and _drag_id >= 0:
 		_update_pointer(_mouse_target(event.position), 0.0) # drag feedback follows the mouse
 	elif event is InputEventMouseButton and _camera != null:
@@ -2649,10 +3096,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				_release_target(target)
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			if event.pressed and target.get("kind", "") == "card":
-				_send({"cmd": "hover", "target": target["id"]})
+				_send_hover(target["id"])
 				_hover_id = target["id"]
 			elif not event.pressed and _hover_id >= 0:
-				_send({"cmd": "unhover", "target": _hover_id})
+				_send_unhover(_hover_id)
 				_hover_id = -1
 
 
@@ -2797,6 +3244,12 @@ func _style_hand_card(body: StaticBody3D, it: Dictionary) -> void:
 	var surface := HAND_CARD_DEPTH / 2 + 0.0002 # (the art lies right on the card stock)
 	var layers := CardArt.card_layers(it)
 	var has_art := not layers.is_empty()
+	# Glass Card: very see-through in the fan - no card stock inside, the base let through far more
+	# (rank and suit are their own layer on top and stay solid, so they stay readable)
+	var glass: bool = has_art and str(it.get("key", "")) == "m_glass" and not it.get("db", false) and not it.get("gr", false)
+	if glass:
+		layers[0] = CardArt.see_through(layers[0], HAND_GLASS_ALPHA)
+	(body.get_node("Core") as Node3D).visible = not glass
 	CardArt.apply_layers(body, layers, size, surface)
 	var back := CardArt.material(it.get("ba"), it.get("bp"))
 	CardArt.apply_layers(body.get_node("BackSide"), [back] if back != null else [], size, surface, 0.0004, 1)
@@ -2836,6 +3289,8 @@ func _try_grab() -> void:
 		return
 	_grab_active = true
 	_grabbed = selected
+	_bundle_prev = _point.global_position
+	_bundle_flicks.clear()
 	# the grabbed cards now belong to the grabbing hand: they follow its position AND rotation
 	for id in _grabbed:
 		if _hand_cards.has(id):
@@ -2844,7 +3299,15 @@ func _try_grab() -> void:
 
 ## Grabbed cards glide into a small fan between the fingers of the grabbing hand.
 func _update_bundle() -> void:
-	var k := 1.0 - exp(-14.0 * get_process_delta_time())
+	var delta := get_process_delta_time()
+	var k := 1.0 - exp(-14.0 * delta)
+	# the hand's speed over the last moment: a flick towards the table plays the cards (see _is_flick)
+	var now := Time.get_ticks_msec() / 1000.0
+	var hand_pos := _point.global_position
+	_bundle_flicks.append([now, (hand_pos - _bundle_prev) / maxf(delta, 0.001)])
+	_bundle_prev = hand_pos
+	while not _bundle_flicks.is_empty() and now - float(_bundle_flicks[0][0]) > FLICK_WINDOW:
+		_bundle_flicks.pop_front()
 	var fan_plane := Basis(Vector3.RIGHT, deg_to_rad(FAN_TILT))
 	var n := _grabbed.size()
 	for i in n:
@@ -2868,17 +3331,26 @@ func _return_grabbed_cards() -> void:
 	_rebuild_hand(_hand_items)
 
 
-func _release_bundle() -> void:
+func _release_bundle(forced := "") -> void:
 	var pos := _point.global_position
-	var sent := ""
-	var by_box := false
-	if _chip.visible and pos.distance_to(_chip.global_position) < CHIP_HIT_RADIUS:
+	var sent := forced
+	var by_box := forced == "discard" # (only the box sends a discard on its own, see _update_bundle)
+	var how := "box" if by_box else "" # (for the VR TUTORIAL: which way it was played / thrown away)
+	if sent != "":
+		pass
+	elif _chip.visible and pos.distance_to(_chip.global_position) < CHIP_HIT_RADIUS:
 		sent = "play"
+		how = "chip"
+	elif _bundle_hits_slot():
+		sent = "discard" # into the SELL / DISCARD box (checked before the flick: a toss at the box isn't a play)
+		by_box = true
+		how = "box"
+	elif _chip.visible and _is_flick(pos):
+		sent = "play" # tossed onto the table with a little flick of the wrist
+		how = "flick"
 	elif _is_behind_shoulder(pos):
 		sent = "discard"
-	elif _coin_slot.is_visible_in_tree() and pos.distance_to(_coin_slot.global_position) < SLOT_RADIUS:
-		sent = "discard" # into the SELL / DISCARD box
-		by_box = true
+		how = "shoulder"
 	if sent == "":
 		_return_grabbed_cards()
 		return
@@ -2892,6 +3364,7 @@ func _release_bundle() -> void:
 		if by_box:
 			_jimbo.react("square_hole", 0.3) # now and then
 		_jimbo_discard() # (before sending, see above)
+	_gesture = how
 	_send({"cmd": sent})
 	if sent == "play":
 		_jimbo_play()
@@ -2908,13 +3381,82 @@ func _release_bundle() -> void:
 	# (to the table or the discard pile) – not back through the card hand first. If the game
 	# doesn't take them (e.g. a hand the boss forbids), they return to the hand after a moment.
 	var now := Time.get_ticks_msec() / 1000.0
-	for id in _grabbed:
+	var toss := sent == "play" and _play_stand.is_visible_in_tree()
+	var n := _grabbed.size()
+	for i in n:
+		var id: int = _grabbed[i]
 		if _hand_cards.has(id) and is_instance_valid(_hand_cards[id]):
 			_hand_cards[id].reparent(self, true)
 			_released[id] = now
+			if toss: # played: they drop onto the stand right away (see _glide_released), not hang in the air
+				var on_board := Vector3((i - (n - 1) / 2.0) * PLAY_SPACING, 0.004, 0.0)
+				_hand_cards[id].set_meta("toss", _play_stand.global_transform * _play_surface()
+						* Transform3D(Basis(Vector3.RIGHT, deg_to_rad(-90.0)), on_board))
 	_grab_active = false
 	_grabbed = []
 	_rebuild_hand(_hand_items)
+
+
+## Let go during a quick little throw towards the table (the blind chip in the middle of it): the
+## fastest moment of the last FLICK_WINDOW seconds counts, as the hand already slows down when the
+## grip opens. A loose toss counts: roughly at the chip, or simply forward and not upwards. Towards
+## you (or over the shoulder) it doesn't count.
+func _is_flick(pos: Vector3) -> bool:
+	var to_table := _chip.global_position - pos
+	if to_table.length() < 0.01:
+		return false
+	to_table = to_table.normalized()
+	var forward := -_head.global_basis.z
+	forward.y = 0.0
+	forward = forward.normalized()
+	for sample in _bundle_flicks:
+		var v: Vector3 = sample[1]
+		if v.length() < FLICK_SPEED:
+			continue
+		var dir := v.normalized()
+		if _aims_at_slot(pos, dir):
+			continue # towards the SELL / DISCARD box, not onto the table: no play (to discard, let go of the cards at the box)
+		if dir.dot(to_table) > FLICK_AIM or (dir.dot(forward) > 0.5 and dir.y < 0.3):
+			return true
+	return false
+
+
+## A throw more towards the SELL / DISCARD box than towards the blind chip (see _is_flick).
+func _aims_at_slot(pos: Vector3, dir: Vector3) -> bool:
+	if _coin_slot == null or not _coin_slot.is_visible_in_tree():
+		return false
+	var to_slot := _slot_top() - pos
+	if to_slot.length() < 0.01:
+		return true
+	var at_slot := dir.dot(to_slot.normalized())
+	if at_slot < SLOT_FLICK_AIM:
+		return false
+	if not _chip.visible:
+		return true
+	var to_chip := _chip.global_position - pos
+	return to_chip.length() < 0.01 or at_slot > dir.dot(to_chip.normalized())
+
+
+## The middle of the box's golden lid (the box can be moved and resized in the layout mode).
+func _slot_top() -> Vector3:
+	return _coin_slot.global_transform * Vector3(0, 0.05, 0)
+
+
+## The grabbed hand cards touch the SELL / DISCARD box (any card's middle within SLOT_CARD_MARGIN
+## of its sides or lid), or the grabbing hand is right above it.
+func _bundle_hits_slot() -> bool:
+	if not _grab_active or _grabbed.is_empty() or _coin_slot == null or not _coin_slot.is_visible_in_tree():
+		return false
+	if _point.global_position.distance_to(_slot_top()) < SLOT_HAND_RADIUS:
+		return true
+	var half := Vector3(0.04, 0.0, 0.03) + Vector3(SLOT_CARD_MARGIN, 0.0, SLOT_CARD_MARGIN)
+	for id in _grabbed:
+		if not _hand_cards.has(id) or not is_instance_valid(_hand_cards[id]):
+			continue
+		var p: Vector3 = _coin_slot.to_local((_hand_cards[id] as Node3D).global_position)
+		if absf(p.x) < half.x and absf(p.z) < half.z and p.y > -0.02 and p.y < 0.05 + SLOT_CARD_MARGIN:
+			return true
+	return false
 
 
 func _is_behind_shoulder(pos: Vector3) -> bool:
@@ -2942,6 +3484,7 @@ const CALIB_LABELS := {
 	"Spieltafel": "Game Board", "Blind-Chip": "Blind Chip", "Score-Turm": "Score Tower", "Joker-Tafel": "Joker Board",
 	"Kartenstapel": "Deck", "Geldstapel": "Money","Kartenfächer": "Card Fan", "Gegriffene Karten": "Grabbed Cards",
 	"Run-Panel": "Run Panel", "Shop": "Shop", "Reroll-Automat": "Reroll Machine", "Münzschlitz": "Coin Slot", "Kartentasche": "Card Stand", "Ladentheke": "Shop Counter",
+	"Run-Info": "Run Info Board",
 }
 
 
@@ -3176,6 +3719,9 @@ func _set_standing(on: bool) -> void:
 func _toggle_wrist_menu() -> void:
 	if not _vr:
 		return
+	if _ach_menu != null and _ach_menu.visible: # the menu button again closes the achievements page (like BACK, but all the way)
+		_ach_menu.visible = false
+		return
 	if _wrist == null:
 		_wrist = WristMenu.new()
 		add_child(_wrist)
@@ -3195,9 +3741,10 @@ func _toggle_wrist_menu() -> void:
 					_send_flags()},
 			{"col": 0, "label": func(): return "Mode: " + ("Standing" if _standing else "Sitting"), "action": func(): _set_standing(not _standing)},
 			{"col": 0, "label": func(): return "Switch Hands", "action": func(): _set_left_handed(not _left_handed)},
-			{"col": 0, "label": func(): return "Background: " + ["Green", "Dark", "Casino"][_backdrop], "action": func(): _next_backdrop()},
+			{"col": 0, "label": func(): return "Background: " + ["Green", "Dark", "Casino", "Passthrough"][_backdrop], "action": func(): _next_backdrop()},
 			{"col": 0, "label": func(): return "Calm Lights: " + ("On" if _calm else "Off"), "action": func(): _set_calm(not _calm)},
 			{"col": 0, "label": func(): return "Casino Sounds: " + ("On" if _ambience_on else "Off"), "action": func(): _set_ambience(not _ambience_on)},
+			{"col": 0, "label": func(): return "Performance: " + ("On" if _perf else "Off"), "action": func(): _set_perf(not _perf)},
 			# right: the game (its Run Info and Options in their colours from the game), help, extras
 			{"col": 1, "colour": Color(0.996, 0.373, 0.333), "label": func(): return "Run Info", "action": func(): # (the run panel's buttons: not shown in VR)
 				_wrist.visible = false
@@ -3205,9 +3752,6 @@ func _toggle_wrist_menu() -> void:
 			{"col": 1, "colour": Color(0.992, 0.635, 0.0), "label": func(): return "Game Options", "action": func():
 				_wrist.visible = false
 				_send({"cmd": "game_menu", "action": "options"})},
-			{"col": 1, "label": func(): return "How To Play", "action": func():
-				_wrist.visible = false
-				_show_tutorial()},
 			{"col": 1, "label": func(): return "Achievements  %d / %d" % [_ach.done_count(), Achievements.LIST.size()], "action": func():
 				_wrist.visible = false
 				_open_achievements()},
@@ -3215,12 +3759,16 @@ func _toggle_wrist_menu() -> void:
 			{"col": 1, "label": func(): return "Spectator: " + Spectator.NAMES[_spectator.mode], "action": func(): _spectator.next_mode()},
 			{"col": 1, "label": func(): return "Hands: " + ("On" if _hands_on else "Off"), "action": func(): _set_hands(not _hands_on)},
 			{"col": 1, "label": func(): return "Jimbo: " + ("On" if _jimbo_on else "Off"), "action": func(): _set_jimbo(not _jimbo_on)},
+			{"col": 1, "label": func(): return "3D Jokers: " + _jokers_3d_mode(), "action": func(): _cycle_jokers_3d()},
 			{"col": 1, "label": func(): return "Wheel of Fortune: " + _wheel_mode, "action": func():
 				_set_wheel(WHEEL_MODES[(WHEEL_MODES.find(_wheel_mode) + 1) % WHEEL_MODES.size()])},
 			{"col": 0, "label": func(): return "Test: Joker Gallery " + ("On" if _test.gallery_on() else "Off"), "action": func():
 				_test.set_gallery(not _test.gallery_on()), "test": true},
 			{"col": 0, "label": func(): return "Boss: " + _test.boss_name(), "action": func(): _step_test_boss(1),
 				"minus": func(): _step_test_boss(-1), "plus": func(): _step_test_boss(1), "test": true},
+			{"col": 1, "label": func(): return "Test: Naneinf", "action": func():
+				_wrist.visible = false
+				_test_naneinf(), "test": true},
 			{"label": func(): return "Close", "action": func(): _wrist.visible = false},
 		] as Array).filter(func(e): return TEST_TOOLS or not e.get("test", false)))
 		_wrist.visible = false
@@ -3276,11 +3824,14 @@ func _load_settings() -> void:
 		_hands_on = cfg.get_value("settings", "hands", true)
 		_ambience_on = cfg.get_value("settings", "casino_sounds", true)
 		_jimbo_on = cfg.get_value("settings", "jimbo", true)
+		_jokers_3d = cfg.get_value("settings", "jokers_3d", true)
+		_jokers_custom_only = _jokers_3d and cfg.get_value("settings", "jokers_custom_only", false)
 		# (a real table measured earlier is no longer applied: "Measure Real Table" left the VR menu)
 		_wheel_mode = str(cfg.get_value("settings", "wheel_mode", "Real"))
 		if not WHEEL_MODES.has(_wheel_mode):
 			_wheel_mode = "Real"
 		_standing = cfg.get_value("settings", "standing", false)
+		_perf = cfg.get_value("settings", "performance", false)
 		if _spectator != null:
 			var spec = cfg.get_value("settings", "spectator", "Off")
 			if spec is int: # saved as a number before there were five views: 0 off, 1 eyes, 2 shoulder, 3 room
@@ -3288,6 +3839,7 @@ func _load_settings() -> void:
 			_spectator.set_mode(maxi(Spectator.NAMES.find(str(spec)), 0))
 	_casino.ambience.set_active(_backdrop == Backdrop.ROOM and _ambience_on)
 	_casino.set_calm(_calm)
+	_apply_perf()
 	for g in _gloves:
 		g.visible = _hands_on
 	_load_floor()
@@ -3327,42 +3879,19 @@ func _set_floor(cm: float) -> void:
 	cfg.save(LAYOUT_FILE)
 
 
-## Jimbo's tips: on the very first start in VR, and from the game's Options menu ("VR: How To Play").
-## The texts name the buttons of the current hand mode.
+## "VR: How To Play" in the game's Options menu: the VR TUTORIAL.
+## It is played on the menu table, so from a run (or Solatro) a hint says where to find it.
 func _show_tutorial() -> void:
 	if not _vr:
 		return
-	if _first_hint != null and is_instance_valid(_first_hint):
-		_first_hint.queue_free() # found them
-	var point := "left" if _left_handed else "right"
-	var cards := "right" if _left_handed else "left"
-	var play := "X" if _left_handed else "A"
-	var discard := "Y" if _left_handed else "B"
-	var recenter := "B" if _left_handed else "Y"
-	var pages := [
-		["Hi, my name is Alex and welcome to UnderTheVRadar's Balatro in VR mod!", "Once a round starts, your cards are in your %s hand. Point at them with your %s hand and pull the trigger to select them - just like clicking. Press the thumbstick of your %s hand to sort them by rank or by suit - or turn that hand on its side and point at SORT." % [cards, point, cards]],
-		["Play & discard", "Grab the selected cards with your %s grip and let go over the golden blind chip to play them (or press %s). Throw them over your shoulder to discard (or press %s)." % [point, play, discard]],
-		["Your table", "Jokers stand on the board: touch one to read it, grab it to move it - left to right is their order. Drop one into the SELL / DISCARD box to sell it - the box lights up when letting go would sell. Cards you grabbed from your hand and let go over the box are discarded. Lift it and look underneath for its price. In the shop, take what you want off the sales counter and pull it towards you to buy it; pull the slot machine's lever to reroll."],
-		["Packs & cards", "Booster packs float up to you: grab them with both hands and tear them open (or point and pull the trigger). Tarot and planet cards stand in the card stand - point at one and pull the trigger to use it."],
-		["The deck", "Hold your hand over the 3D deck on the table: it shows which cards are still left in it. Take your hand away and the view closes again."],
-		["Put things where you like", "Everything can be moved: X on your card hand's controller (A when left-handed) opens the VR menu, then Adjust VR Layout. Grab an orange handle with the grip and move, turn or resize the game board, run panel, shop, joker board, deck, money, slot machine, coin slot, card stand, blind chip and your card fan. Press X (A) again to save. Sitting and standing each keep their own layout."],
-		["Make it yours", "The VR menu (X / A) also has the background, Calm Lights, sounds, the spectator camera and this How To Play. %s brings everything in front of you. Have fun!" % [recenter]],
-	]
-	if _tutorial == null:
-		_tutorial = VRTutorial.new()
-		add_child(_tutorial)
-		_tutorial.finished.connect(func():
-			var cfg := ConfigFile.new()
-			cfg.load(LAYOUT_FILE)
-			cfg.set_value("settings", "tutorial_done", true)
-			cfg.save(LAYOUT_FILE))
-	# in front of you, a little below eye level, turned to you
-	var fwd := -_head.global_basis.z
-	fwd.y = 0.0
-	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
-	var at := _head.global_position + fwd * 0.7 + Vector3(0, -0.12, 0)
-	_tutorial.global_transform = Transform3D(Basis(Vector3.UP, atan2(-fwd.x, -fwd.z)), at)
-	_tutorial.setup(pages)
+	if _tut_run != null and _tut_run.active:
+		return # (already in it)
+	if _menu_on and not _solo_active():
+		_start_vr_tutorial()
+		return
+	var at: Node3D = _fan_anchor if _fan_anchor != null else _main_menu
+	if at != null:
+		_rack_hint(at, "The VR TUTORIAL is on the menu table (main menu)")
 
 
 ## "VR: Spectator" in the game's Options menu: off -> eyes -> shoulder -> room -> off. Also the keys
@@ -3481,7 +4010,7 @@ func _apply_rewards() -> void:
 		_casino.set_felt(_ach.metal("collector").darkened(0.47)) # the chosen colour (darker than the gold line on it)
 	else:
 		_casino.set_felt(CasinoRoom.FELT)
-	var glove_style := "gold" if _ach.reward("pack_rat") else ("split" if _ach.reward("ambidextrous") else ("neon" if _ach.reward("hand_model") else "white"))
+	var glove_style := "gold" if _ach.reward("pack_rat") else ("split" if _ach.reward("ambidextrous") else ("neon" if _ach.reward("hand_model") else ("glitch" if _ach.reward("overflow") else "white")))
 	for g in _gloves:
 		if is_instance_valid(g):
 			g.set_style(glove_style, _ach.metal("pack_rat"))
@@ -3497,6 +4026,7 @@ func _apply_rewards() -> void:
 		_lever.set_metal(_ach.metal("one_armed"))
 		_lever.rainbow = _ach.reward("lever_frenzy")
 	_casino.set_summit_flag(_ach.reward("mountain"))
+	_casino.set_naneinf_club(_ach.reward("overflow"))
 	_planets.set_trails(_ach.reward("planet_hopper"))
 	if _collection != null:
 		_collection.set_golden(_ach.reward("curator"), _ach.metal("curator"))
@@ -3843,7 +4373,7 @@ var _keyboard_dismissed := false
 
 func _update_keyboard(state: Dictionary) -> void:
 	var box = state.get("text_input")
-	if not (_vr and box is Dictionary):
+	if not (_vr and box is Dictionary) or _comment_photo != "": # (a photo comment is being typed: one keyboard at a time)
 		_keyboard_dismissed = false
 		if _keyboard != null:
 			_keyboard.visible = false
@@ -3915,7 +4445,9 @@ func _toggle_photo() -> void:
 			if _vr and _has_joker("j_photograph"):
 				_ach.add("say_cheese")
 				_photo.polaroid = _ach.reward("say_cheese")
-			_jimbo.react("photo", 0.8))
+			_jimbo.react("photo", 0.8)
+			if _state.get("test_mode", false):
+				_ask_comment(path))
 	_photo.visible = not _photo.visible
 	if _photo.visible:
 		var eye: Node3D = _head if _vr else _camera
@@ -3928,6 +4460,119 @@ func _toggle_photo() -> void:
 		for h in [_left, _right]:
 			if h != null:
 				_photo.release(h)
+
+
+## Test mode (the mod's TEST_MONEY): after each photo a keyboard asks what is wrong in it. The
+## comment goes next to the photo (Photos/Feedback, same name .txt) with what the game showed at
+## that moment - for working through the feedback later (Docs/FEEDBACK.md). OK closes it; also
+## a photo without a comment gets its .txt.
+const COMMENT_SHOWN := 44         # the strip above the keys shows the end of a long comment
+var _comment_kbd: KeyboardVR
+var _comment_photo := ""          # the photo the open comment belongs to ("" = none open)
+var _comment_text := ""
+var _comment_ctx := {}            # the game's state when the photo was taken
+
+
+func _ask_comment(path: String) -> void:
+	if _comment_photo != "":
+		_close_comment() # (the last photo's comment is done)
+	_comment_photo = path
+	_comment_text = ""
+	_comment_ctx = _feedback_context()
+	_save_comment()
+	if _comment_kbd == null:
+		_comment_kbd = KeyboardVR.new()
+		add_child(_comment_kbd)
+		_comment_kbd.typed.connect(_comment_key)
+		_comment_kbd.done.connect(_close_comment)
+		_comment_kbd.press_shift_default()
+	if _keyboard != null:
+		_keyboard.visible = false
+	var eye: Node3D = _head if _vr else _camera
+	var fwd := -eye.global_basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
+	# in front of you a little below the eyes, the keys facing you (+z towards you)
+	_comment_kbd.global_transform = Transform3D(Basis.looking_at(fwd), eye.global_position + fwd * 0.45 + Vector3(0, -0.3, 0))
+	_comment_kbd.visible = true
+	_show_comment()
+
+
+func _comment_key(k: String, caps: bool) -> void:
+	match k:
+		"backspace":
+			_comment_text = _comment_text.left(-1)
+		"space":
+			_comment_text += " "
+		"return":
+			return # (OK: done closes it)
+		_:
+			_comment_text += k.to_upper() if caps else k
+	_show_comment()
+
+
+func _show_comment() -> void:
+	var t := _comment_text
+	if t.length() > COMMENT_SHOWN:
+		t = "..." + t.right(COMMENT_SHOWN - 3)
+	if _comment_kbd != null:
+		_comment_kbd.show_box({"text": t, "extended": true, "prompt": "Comment on the photo (OK = done)"})
+
+
+func _close_comment() -> void:
+	if _comment_photo == "":
+		return
+	_save_comment()
+	_set_status("Comment saved: " + _comment_photo.get_basename() + ".txt")
+	_comment_photo = ""
+	if _comment_kbd != null:
+		_comment_kbd.visible = false
+
+
+func _save_comment() -> void:
+	var f := FileAccess.open(_comment_photo.get_basename() + ".txt", FileAccess.WRITE)
+	if f == null:
+		return
+	f.store_string("Comment: %s\n\nPhoto: %s\nContext (what the game showed): %s\n" % [
+		_comment_text.strip_edges() if _comment_text.strip_edges() != "" else "(none)",
+		_comment_photo.get_file(), JSON.stringify(_comment_ctx, "  ")])
+	f.close()
+
+
+## What helps to find the problem in a feedback photo: the game's screen, the round, the jokers and
+## where the camera was looking.
+func _feedback_context() -> Dictionary:
+	var ctx := {"time": Time.get_datetime_string_from_system(), "vr": _vr}
+	for k in ["state_name", "in_run", "overlay", "viewing_deck", "round", "stake_name", "shop_open", "pack_waiting"]:
+		if _state.has(k):
+			ctx[k] = _state[k]
+	var menu = _state.get("menu")
+	if menu is Dictionary: # (without the decks and stakes of the New Run table: long and always the same)
+		ctx["menu"] = menu.duplicate()
+		ctx["menu"].erase("setup")
+	var blind = _state.get("blind")
+	if blind is Dictionary:
+		ctx["blind"] = {"key": blind.get("key", ""), "name": blind.get("name", "")}
+	ctx["jokers"] = (_state.get("jokers", []) as Array).map(func(j): return j.get("key", "") if j is Dictionary else "")
+	if _photo != null:
+		var p := _photo.global_position
+		var look := -_photo.global_basis.z
+		ctx["camera"] = {"pos": [snappedf(p.x, 0.01), snappedf(p.y, 0.01), snappedf(p.z, 0.01)],
+			"look": [snappedf(look.x, 0.01), snappedf(look.y, 0.01), snappedf(look.z, 0.01)]}
+		# the joker figures in the picture, the one nearest the middle first (the collection's
+		# cabinet shows them outside a run too)
+		var seen := []
+		for n in find_children("*", "Node3D", true, false):
+			var custom := n.has_meta("custom_joker") # (the player's own model: no scene file)
+			if not (n as Node3D).is_visible_in_tree() or not (custom or n.scene_file_path.begins_with("res://jokers/j_")):
+				continue
+			var to: Vector3 = (n as Node3D).global_position - p
+			if to.dot(look) <= 0.05 or to.length() > 1.5:
+				continue
+			seen.append([to.normalized().angle_to(look), str(n.get_meta("custom_joker")) if custom else n.scene_file_path.get_file().get_basename()])
+		seen.sort()
+		ctx["jokers_in_view"] = seen.slice(0, 4).filter(func(s): return s[0] < 0.5).map(func(s): return s[1])
+	return ctx
 
 
 # ---------------------------------------------------------------- mixed reality: the real table
@@ -4011,7 +4656,7 @@ func _set_real_table(left: Vector3, right: Vector3) -> void:
 func _apply_real_table() -> void:
 	# the board onto the real table with the Green background (Virtual Desktop keys the green out);
 	# the soft shadows are a test there: a dark patch on the green may not key out cleanly
-	var on := _real_table_set and _backdrop == Backdrop.GREEN
+	var on := _real_table_set and (_backdrop == Backdrop.GREEN or _backdrop == Backdrop.PASSTHROUGH)
 	_set_blob_shadows(false) # (no shadow blobs: on the green they showed as dark green patches)
 	if not on:
 		return
@@ -4334,6 +4979,8 @@ func _show_wheel(data: Dictionary) -> void:
 	fwd.y = 0.0
 	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
 	var at := eye.global_position + fwd * 0.42 + Vector3(0, -0.18, 0)
+	if _joker_table != null and _joker_table.is_inside_tree():
+		at.y = _table_surface_y() + WheelSpin.FOOT # its foot stands on the table (the casino's felt lies there too), not in the air at eye height
 	_wheel.global_transform = Transform3D(Basis.looking_at(fwd), at) # its face (+z) towards you
 	_wheel.scale = Vector3.ONE * 0.01
 	create_tween().tween_property(_wheel, "scale", Vector3.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -4415,7 +5062,8 @@ func _set_ambience(on: bool) -> void:
 func _send_flags() -> void:
 	_send({"cmd": "vr_flags", "calm": _calm, "hands": _hands_on,
 		"spec": Spectator.NAMES[_spectator.mode] if _spectator != null else "Off", "amb": _ambience_on,
-		"floor": _floor_cm, "wheel": _wheel_mode, "jimbo": _jimbo_on})
+		"floor": _floor_cm, "wheel": _wheel_mode, "jimbo": _jimbo_on, "j3d": _jokers_3d,
+		"j3d_mode": _jokers_3d_mode()})
 
 
 ## "VR: Hands" in the game's Options menu: Jimbo's gloves on or off (then only the beam).
@@ -4531,10 +5179,17 @@ func _update_calibration_help() -> void:
 
 func _available_backdrops() -> Array:
 	var modes: Array = [] # (Virtual Desktop shows your room through the Green background - chroma key)
+	if _passthrough_supported():
+		modes.append(Backdrop.PASSTHROUGH) # real passthrough (e.g. Steam Frame, Virtual Desktop's own runtime)
 	modes.append(Backdrop.GREEN)
 	modes.append(Backdrop.DARK)
 	modes.append(Backdrop.ROOM)
 	return modes
+
+
+## Does the OpenXR runtime blend our picture over the headset's camera view?
+func _passthrough_supported() -> bool:
+	return _vr and _xr != null and _xr.get_supported_environment_blend_modes().has(XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND)
 
 
 func _next_backdrop() -> void:
@@ -4559,7 +5214,7 @@ func _set_backdrop(mode: Backdrop) -> void:
 	if _vr and not _hand_items.is_empty():
 		_rebuild_hand(_hand_items)
 	_board.hide_dimmers = see_through
-	_env.glow_enabled = not flat # bloom halos would tint the chroma-key green
+	_env.glow_enabled = mode == Backdrop.ROOM and not _perf # bloom halos would tint the chroma-key green / smear the passthrough alpha (performance mode: no bloom)
 	# the casino: smoky air that swallows the far corners, filmic colours with a bit more contrast
 	# (passthrough and green stay neutral)
 	_env.fog_enabled = mode == Backdrop.ROOM
@@ -4573,6 +5228,15 @@ func _set_backdrop(mode: Backdrop) -> void:
 	if not _last_scene.is_empty():
 		_board.apply_scene(_last_scene) # redraw translucent panels for the new mode
 	match mode:
+		Backdrop.PASSTHROUGH:
+			# real passthrough from the runtime: a fully transparent background lets the camera view through
+			# (on the Steam Frame black and white, in colour with a camera add-on)
+			_apply_real_table.call_deferred()
+			_xr.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND
+			get_viewport().transparent_bg = true
+			_env.background_mode = Environment.BG_COLOR
+			_env.background_color = Color(0, 0, 0, 0)
+			_set_status("Background: passthrough")
 		Backdrop.GREEN:
 			# pure green for Virtual Desktop's chroma-key passthrough
 			_apply_real_table.call_deferred()
@@ -4632,11 +5296,52 @@ func _set_room_reverb(on: bool) -> void:
 
 func _start_xr() -> bool:
 	_xr = XRServer.find_interface("OpenXR")
-	if _xr == null or not _xr.initialize():
+	if _xr == null:
+		return false
+	# Performance mode renders fewer pixels per eye. The headset's image size can only be set before
+	# OpenXR starts, so a change in the VR menu takes effect with the next start.
+	var cfg := ConfigFile.new()
+	_perf = cfg.load(LAYOUT_FILE) == OK and cfg.get_value("settings", "performance", false)
+	if _xr is OpenXRInterface:
+		(_xr as OpenXRInterface).render_target_size_multiplier = PERF_RENDER_SCALE if _perf else 1.0
+	if not _xr.initialize():
 		return false
 	get_viewport().use_xr = true
-	get_viewport().msaa_3d = Viewport.MSAA_4X # smooth edges: jaggies and shimmering are far more visible in a headset
+	# which backgrounds the runtime can blend (OPAQUE 0, ADDITIVE 1, ALPHA_BLEND 2): ALPHA_BLEND means passthrough works
+	print("OpenXR environment blend modes: ", _xr.get_supported_environment_blend_modes())
+	# OpenXR paces the frames itself; with V-Sync the desktop window would also wait for the monitor
+	# and could drag the headset down to a fraction of its refresh rate.
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	get_viewport().msaa_3d = _perf_msaa() # smooth edges: jaggies and shimmering are far more visible in a headset
 	return true
+
+
+## MSAA for the headset and the spectator window: 4x, or 2x in performance mode.
+func _perf_msaa() -> Viewport.MSAA:
+	return Viewport.MSAA_2X if _perf else Viewport.MSAA_4X
+
+
+## "Performance" in the VR menu: for slower PCs. 2x instead of 4x MSAA, no bloom, no shadows, the
+## room's side lamps off, and (from the next start) fewer pixels per eye. Kept in the settings.
+func _set_perf(on: bool) -> void:
+	_perf = on
+	_apply_perf()
+	var cfg := ConfigFile.new()
+	cfg.load(LAYOUT_FILE)
+	cfg.set_value("settings", "performance", on)
+	cfg.save(LAYOUT_FILE)
+	_set_status("Performance mode on (sharpness changes with the next start)" if on else "Performance mode off (sharpness changes with the next start)")
+
+
+func _apply_perf() -> void:
+	if _vr:
+		get_viewport().msaa_3d = _perf_msaa()
+	_env.glow_enabled = _backdrop == Backdrop.ROOM and not _perf
+	_casino.set_performance(_perf)
+	if _end_spot != null:
+		_end_spot.shadow_enabled = not _perf
+	if _spectator != null:
+		_spectator.set_msaa(_perf_msaa())
 
 
 func _build_scene() -> void:
@@ -4682,6 +5387,7 @@ func _build_scene() -> void:
 	_board.keep_hand_separate = _vr
 	_board.casino_skin = _vr
 	_board.popup_anchor_for = _popup_anchor_for
+	_board.popup_wanted = _popup_wanted
 	_layout.add_child(_board)
 
 	_build_anchors()
@@ -4723,6 +5429,7 @@ func _build_scene() -> void:
 		_camera.look_at(Vector3(0.25, 0.85, 0.2))
 		_set_backdrop(Backdrop.ROOM)
 
+	_board.position.z = BOARD_FORWARD
 	_register_calibratable("Spieltafel", _board)
 	_register_calibratable("Blind-Chip", _chip)
 	_score_tower = ScoreTower.new() # the blind's score so far against its target, beside the chip
@@ -4731,6 +5438,14 @@ func _build_scene() -> void:
 	_score_tower.visible = false
 	_layout.add_child(_score_tower)
 	_register_calibratable("Score-Turm", _score_tower, false, 0.27) # handle above the gold ring
+	_run_info = RunInfoBoard.new()
+	_run_info.name = "RunInfoBoard"
+	_run_info.position = RUN_INFO_POS
+	_run_info.rotation_degrees = Vector3(0, RUN_INFO_YAW, 0)
+	_run_info.scale = Vector3.ONE * RUN_INFO_SCALE
+	_run_info.visible = false
+	_layout.add_child(_run_info)
+	_register_calibratable("Run-Info", _run_info, false, 0.21) # handle above the board
 	# handle well above the mat: lower it onto the real table without the controller hitting the table
 	_register_calibratable("Joker-Tafel", _joker_table, false, 0.25)
 	_register_calibratable("Kartenstapel", _deck, true, 0.17) # handle above the "52 / 52" count
@@ -4756,13 +5471,12 @@ func _build_scene() -> void:
 	if _spectator != null: # from here on every change (Options button or keys 1-3 in its window) is kept
 		_spectator.mode_changed.connect(func(_m): _save_spectator())
 	_load_layout()
-	# until the tips have been looked at once: a single line pointing to them (not the tips
-	# themselves - on the first start nothing of the game is there yet that they talk about)
+	# until the VR TUTORIAL has been played to its end once: a single line pointing to its sign
 	var cfg := ConfigFile.new()
 	cfg.load(LAYOUT_FILE)
-	if _vr and not cfg.get_value("settings", "tutorial_done", false):
+	if _vr and not cfg.get_value("settings", "vr_tutorial_done", false):
 		_first_hint = Label3D.new()
-		_first_hint.text = "First time? Check How To Play: X on your card hand's controller opens the VR menu,\nor Options → VR Settings → How To Play in Balatro"
+		_first_hint.text = "First time in VR? Point at the VR-TUTORIAL sign on the menu table\nand pull the trigger - Jimbo shows you all the moves"
 		_first_hint.font_size = 40
 		_first_hint.pixel_size = 0.0009
 		_first_hint.outline_size = 10
@@ -5007,8 +5721,10 @@ const BAG_SIZE := Vector3(0.2, 0.03, 0.07)    # the card stand: width, height, d
 const PLAY_ROW := Vector3(0.0, TABLE_Y + JOKER_TABLE_TOP, 0.3) # the played-cards stand (layout space): at the back of the joker board, on its surface
 # the sales counter's default (layout space): closer, floating over the back of the joker board and
 # leaning towards you - its cards within reach, the jokers below still in view
-const SHOP_COUNTER_POS := Vector3(0.0, TABLE_Y + 0.25, 0.33)
+const SHOP_COUNTER_POS := Vector3(-0.28, TABLE_Y + 0.33, 0.45) # the shop's sales counter: floating over the left of the table ...
 const SHOP_COUNTER_TILT := 30.0
+const SHOP_COUNTER_YAW := 30.0                   # ... turned towards you
+const SHOP_COUNTER_SCALE := 0.8
 # the reroll machine's default: right of the joker board (left for left-handers), bigger, turned to you
 const SHOP_MACHINE_POS := Vector3(0.52, TABLE_Y + JOKER_TABLE_TOP, 0.62)
 const SHOP_MACHINE_TURN := -30.0
@@ -5020,12 +5736,17 @@ const PLAY_STAND_LIFT := 0.05                   # height of its front edge above
 const PLANET_CENTER := Vector3(0, 0.3, 1.0)     # layout space: about the player's head
 const TABLE_CARD := Vector2(0.063, 0.088)
 const HAND_CARD_DEPTH := 0.002    # card stock of the cards in your hand (they are bigger than real cards)
+const HAND_GLASS_ALPHA := 0.4   # how much of a Glass Card's base still shows in the fan (1 = as in the game)
 const TABLE_CARD_DEPTH := 0.0016   # card stock between front and back art (visible from the side)
 const TOUCH_RADIUS := 0.08                      # a hand this close (sideways) to a joker model "touches" it
 const SLOT_RADIUS := 0.09                       # let go this close to the coin slot = sell
+const SLOT_CARD_MARGIN := 0.05                  # grabbed hand cards this close to the box's sides/top = they hit it (discard)
+const SLOT_HAND_RADIUS := 0.13                  # ... or the grabbing hand this close to the top of the box
+const SLOT_FLICK_AIM := 0.7                     # a flick at least this straight at the box (cos of ~45 degrees) never plays
 
 var _sounds: SoundBank
 var _planets: HandPlanets
+var _run_info: RunInfoBoard    # the Run Info's blinds (Upcoming, boss, scores, rewards) as a board of its own during the run
 var _jimbo: JimboCompanion
 var _pack: PackTear
 var _lever: RerollLever
@@ -5109,6 +5830,51 @@ func _build_table_fun() -> void:
 		cfg.load(LAYOUT_FILE)
 		cfg.set_value("solatro", "bowl", at)
 		cfg.save(LAYOUT_FILE))
+	_tut_run = TutorialRun.new() # the VR TUTORIAL from the menu table (played by VR alone, like Solatro)
+	add_child(_tut_run)
+	_tut_run.publish.connect(func(scene: Dictionary, state: Dictionary):
+		_last_scene = scene # (first: a new card in the stand takes its picture from the scene, see _refresh_rack_art)
+		_apply_state(state)
+		_apply_scene(scene))
+	_tut_run.hint.connect(func(text: String): _rack_hint(_tut_run, text, 0.05))
+	_tut_run.say.connect(func(text: String):
+		if _jimbo != null and _jimbo.visible and text != "":
+			_jimbo.say(text))
+	_tut_run.leave.connect(_leave_vr_tutorial)
+	_tut_run.set_hands.connect(_set_left_handed) # (saved in the settings, like "Switch Hands")
+	_tut_run.show_pack.connect(_show_pack)
+	_tut_run.hide_pack.connect(func():
+		if _pack != null and is_instance_valid(_pack):
+			_pack.queue_free()
+		_pack = null)
+	_tut_run.show_wheel.connect(func(on: bool):
+		if on:
+			_show_wheel({"chance": 0.25, "win": true, "real": false}) # (the tutorial's wheel always lands on WIN!)
+		elif _wheel != null and is_instance_valid(_wheel):
+			_wheel.queue_free())
+	_tut_run.effect.connect(func(kind: String):
+		if kind == "planet":
+			_stars.burst())
+	_tut_run.joker_node = func(uid: int): return _jokers.get(uid)
+	_tut_run.node_for = _tut_node
+	_tut_run.backdrop_probe = func() -> int: return int(_backdrop)
+	_tut_run.sfx.connect(_tut_sound)
+	_tut_run.layout_lesson.connect(_tut_layout)
+	_tut_run.layout_probe = func() -> Dictionary:
+		return {"calib": _calibrating, "held": _calib_grabbed == "Score-Turm",
+			"pos": _score_tower.global_position, "scale": _score_tower.scale.x}
+	_tut_run.reward_on = func() -> bool: return _ach.reward("tutorial")
+	_tut_run.unlock.connect(func():
+		if _ach.is_done("tutorial"): # (unlocked in an earlier tutorial: the reward comes back on, the plaque again)
+			_ach.set_reward("tutorial", true)
+			_on_achievement("tutorial")
+		else:
+			_ach.add("tutorial"))
+	_tut_run.finished.connect(func():
+		var cfg := ConfigFile.new()
+		cfg.load(LAYOUT_FILE)
+		cfg.set_value("settings", "vr_tutorial_done", true)
+		cfg.save(LAYOUT_FILE))
 	_lever = RerollLever.new()
 	_joker_table.add_child(_lever)
 	if _vr:
@@ -5142,7 +5908,8 @@ func _build_table_fun() -> void:
 				mi.material_override = own
 	_layout.add_child(_counter)
 	_counter.position = SHOP_COUNTER_POS
-	_counter.rotation_degrees.x = SHOP_COUNTER_TILT
+	_counter.rotation_degrees = Vector3(SHOP_COUNTER_TILT, SHOP_COUNTER_YAW, 0)
+	_counter.scale = Vector3.ONE * SHOP_COUNTER_SCALE
 	_counter.visible = false
 	_counter.buy.connect(func(uid: int):
 		_count_bargain(uid)
@@ -5585,8 +6352,8 @@ func _update_sell_glow() -> void:
 	var price := -1
 	var hand: XRController3D = null
 	var discard := false
-	if _grab_active and not _grabbed.is_empty() and _coin_slot.is_visible_in_tree() 			and _point.global_position.distance_to(_coin_slot.global_position) < SLOT_RADIUS:
-		armed = true # grabbed hand cards over the box: let go = discard them
+	if _bundle_hits_slot():
+		armed = true # grabbed hand cards at the box: let go (grip) = discard them (0 left: the box says so)
 		discard = true
 		hand = _point
 	elif _slot_solatro:
@@ -5953,6 +6720,44 @@ func _score_pop(ev: Dictionary) -> void:
 
 # ---------------------------------------------------------------- shattering
 
+## The score overflowed ("naneinf"): the score tower bursts and its chips shoot up through the
+## ceiling (ScoreTower.set_naneinf), Jimbo can't believe it, and a moment later the casino comes
+## apart into space around you and the table (CasinoRoom.naneinf). `real`: counts for "Overflow".
+func _on_naneinf(real: bool) -> void:
+	if real and _vr:
+		_ach.add("overflow")
+	_score_tower.calm = _calm
+	var at := _score_tower.global_position
+	_naneinf_sound("glass1", at, 0.8)
+	_naneinf_sound("explosion_release1", at, 1.0)
+	_jimbo.react("naneinf")
+	_casino.pulse(3.0)
+	get_tree().create_timer(1.4).timeout.connect(func():
+		if _backdrop != Backdrop.ROOM or not _casino.visible:
+			return
+		_casino.naneinf(_eyes())
+		_naneinf_sound("negative", _eyes() + Vector3.UP * 0.5, 0.6)
+		_naneinf_sound("whoosh_long", _eyes(), 0.7))
+
+
+func _naneinf_sound(code: String, at: Vector3, per: float) -> void:
+	if _sounds.has_sound(code):
+		_sounds.play({"code": code, "per": per, "vol": _sounds.last_volume * 1.2, "at": at})
+
+
+## Test (key N, or the VR menu with TEST_TOOLS): the naneinf moment without a real overflow.
+func _test_naneinf() -> void:
+	_score_tower.visible = true
+	_score_tower.set_score(INF, maxf(float(_state.get("blind", {}).get("chips", 300)), 1.0))
+	_score_tower.calm = _calm
+	_score_tower.set_naneinf(true)
+	_on_naneinf(false)
+	get_tree().create_timer(22.0).timeout.connect(func(): # (after the room is back together)
+		if not _naneinf_was:
+			_score_tower.set_naneinf(false)
+			_score_tower.visible = not _tower_last.is_empty() or _calibrating)
+
+
 ## The chip's face bursts into shards (the build-up before it: _defeat_chip).
 func _shatter_chip(power := 1.0) -> void:
 	var art := _chip_front.get_node_or_null("Art0") as MeshInstance3D
@@ -6008,6 +6813,7 @@ func _show_pack(ev: Dictionary) -> void:
 
 
 func _on_pack_torn() -> void:
+	_gesture = "tear" if _pack != null and is_instance_valid(_pack) and _pack.hand_count() >= 2 else "laser"
 	_send({"cmd": "open_pack"})
 	_ach.add("pack_rat")
 	if _pack != null and is_instance_valid(_pack) and _pack.pull_seconds() >= 3.0:
@@ -6134,6 +6940,7 @@ func _drop_consumable() -> void:
 	var thrown_up := pos.y > _eyes().y + 0.05 or _held_velocity.y > 1.2
 	var on_hand := _over_card_hand(pos, _held_consumable_hand)
 	if thrown_up or on_hand:
+		_gesture = "throw" if thrown_up else "hand"
 		_use_consumable(uid, thrown_up and kind == "Planet") # (a planet flies off into the sky)
 	# not used: it glides back into the rack (the animation does that)
 
@@ -6197,7 +7004,7 @@ func _update_fan_glow() -> void:
 		if node != null:
 			pos = node.global_position
 			hand = _counter.held_hand()
-			works = it.get("cu", false) and int(it.get("cost", 0)) <= int(_state.get("round", {}).get("dollars", 0))
+			works = it.get("cu", false) and int(it.get("cost", 0)) <= _spendable()
 	elif _held_consumable >= 0 and is_instance_valid(_consumables.get(_held_consumable)):
 		var card: Node3D = _consumables[_held_consumable]
 		pos = card.global_position
@@ -6206,7 +7013,7 @@ func _update_fan_glow() -> void:
 	var on := hand != null and _over_card_hand(pos, hand)
 	_fan_glow.visible = on
 	if on:
-		_fan_glow.global_position = _holder.global_position
+		_fan_glow.global_position = _card_hand_point()
 		var t := Time.get_ticks_msec() / 1000.0
 		var a := 0.4 if _calm else 0.3 + 0.12 * sin(t * 8.0) # (Calm Lights: no pulsing)
 		_fan_glow_mat.albedo_color = Color(1.0, 0.75, 0.2, a) if works else Color(1.0, 0.2, 0.15, a)
@@ -6216,7 +7023,20 @@ func _update_fan_glow() -> void:
 ## purpose: only a card brought right to the hand counts.
 const HAND_DROP_RADIUS := 0.1
 func _over_card_hand(pos: Vector3, hand: Node3D) -> bool:
-	return _holder != null and hand != _holder and pos.distance_to(_holder.global_position) < HAND_DROP_RADIUS
+	return _holder != null and hand != _holder and pos.distance_to(_card_hand_point()) < HAND_DROP_RADIUS
+
+
+## Where a card is "on" the card hand: the middle of the palm. _holder uses the aim pose, whose origin
+## sits out at the fingertips, so take the grip pose of the same hand (the one Jimbo's glove hangs on)
+## and the middle of the glove's palm in it. Falls back to the aim pose without grip tracking.
+func _card_hand_point() -> Vector3:
+	var left := _holder == _left
+	for g in _gloves:
+		if g.left == left:
+			var grip := g.get_parent() as XRController3D
+			if grip != null and grip.get_has_tracking_data():
+				return grip.to_global(Vector3(-0.03 * (1.0 if left else -1.0), 0.02, 0.0))
+	return _holder.global_position
 
 
 ## Uses a tarot / planet / spectral card from the rack (beam + trigger, dropped on the hand, or a
@@ -6298,6 +7118,8 @@ func _animate_table_fun(delta: float) -> void:
 	_update_touch(delta)
 	if _jimbo.visible: # he sits across the table, on its surface - wherever the joker board was put
 		var at := _table_frame() * JIMBO_SPOT
+		if _tut_run != null and _tut_run.visible: # the VR TUTORIAL: he stands beside its board, not behind it
+			at = _tut_run.global_transform * TutorialRun.JIMBO_AT
 		_jimbo.global_position = Vector3(at.x, _table_surface_y(), at.z)
 
 
@@ -6363,14 +7185,14 @@ func _update_touch(delta: float) -> void:
 		_touch_left = 0.0
 		if found != _touch_uid:
 			if _touch_uid >= 0:
-				_send({"cmd": "unhover", "target": _touch_uid})
+				_send_unhover(_touch_uid)
 			_touch_uid = found
-			_send({"cmd": "hover", "target": found})
+			_send_hover(found)
 			_buzz_hand(_point, 0.15, 0.02)
 	elif _touch_uid >= 0:
 		_touch_left += delta
 		if _touch_left > 1.2: # the tooltip stays a moment after letting go
-			_send({"cmd": "unhover", "target": _touch_uid})
+			_send_unhover(_touch_uid)
 			_touch_uid = -1
 	var touched = _touched_node()
 	if touched != null:
@@ -6409,6 +7231,8 @@ func _grip_table(hand: XRController3D) -> bool:
 	if _wheel != null and is_instance_valid(_wheel) and _wheel.try_grab(hand): # the Wheel of Fortune's rim
 		return true
 	if _try_grab_stand(hand): # the stand the played cards lie on
+		return true
+	if _try_grab_run_info(hand): # the Run Info board
 		return true
 	if _solatro != null and _solatro.visible and _solatro.try_grab(hand): # a token chip
 		_buzz_hand(hand, 0.2, 0.03)
@@ -6592,6 +7416,13 @@ func _pack_colours(name: String) -> Array:
 	return [Color(1, 0.85, 0.3), Color(1, 1, 1), Color(0.95, 0.4, 0.5), Color(0.4, 0.75, 1.0)]
 
 
+## Money that can still be spent in the shop: with Credit Card that goes down to -$20 (the game's
+## bankrupt_at). An older bridge without "spendable": just the dollars.
+func _spendable() -> int:
+	var r: Dictionary = _state.get("round", {})
+	return int(r.get("spendable", r.get("dollars", 0)))
+
+
 ## Is that joker on the table now?
 func _has_joker(key: String) -> bool:
 	for j in _state.get("jokers", []):
@@ -6628,6 +7459,10 @@ func _release_table(hand: XRController3D) -> void:
 		_photo.release(hand) # it stays floating there (beam + trigger on it: self-timer)
 	if _wheel != null and is_instance_valid(_wheel):
 		_wheel.release(hand) # let go of the rim: a good swing spins it
+	if _held_info_hand == hand:
+		_held_info_hand = null # the Run Info board stays where it was let go, kept for next time
+		_save_layout()
+		_buzz_hand(hand, 0.25, 0.04)
 	if _held_stand_hand == hand:
 		_held_stand_hand = null # put down where it is, kept for next time
 		_save_layout()
@@ -6644,6 +7479,7 @@ func _release_table(hand: XRController3D) -> void:
 	if _counter.holds(hand):
 		# "buy and use": a tarot / spectral card dropped onto the card hand, a planet thrown up -
 		# the same gestures as using a card from the card stand
+		_gesture = "grab"
 		var result := _counter.release_use(hand) if _counter_use_gesture(hand) else _counter.release(hand)
 		if result == "":
 			_ach.add("window_shopper") # taken and put back
@@ -6670,15 +7506,18 @@ var _released := {}              # hand card id -> time it was let go to be play
 var _flights: Array = []         # cards flying somewhere, see _fly()
 var _tension := false
 var _calm := false               # Calm Lights: no flashes, flicker or pulsing (photosensitive players)
+var _perf := false               # Performance mode for slower PCs, see _set_perf()
 var _hands_on := true            # Jimbo's gloves shown
 var _jimbo_on := true            # "VR: Jimbo": he sits at the casino table
+var _jokers_3d := true           # "3D Jokers": the joker figures on the board (off: only their cards)
+var _jokers_custom_only := false # "3D Jokers: Custom Only": only figures from the custom_jokers folder
 var _ambience_on := true         # the casino's own sounds (slot machines, glasses, chips)
 var _gloves: Array = []          # the two JimboHands (VR only)
 var _spectator: Spectator        # the spectator camera window (VR only)
-var _tutorial: VRTutorial        # Jimbo's tips
 var _wrist: WristMenu            # the VR settings above the card hand (menu button)
 var _main_menu: MainMenuVR       # the main menu as objects on the casino table (VR)
 var _score_tower: ScoreTower     # the blind's score against its target, beside the blind chip
+var _naneinf_was := false        # the score was "naneinf" in the last state (the moment starts once)
 var _new_run: NewRunVR           # the "New Run" table: decks, stake chips, START (VR)
 var _new_run_open := false       # PLAY was pressed: the New Run table instead of the main menu
 var _menu_on := false            # the game is in its main menu and VR shows it on the table
@@ -6713,7 +7552,9 @@ var _tower_last: Array = []      # [score, target] of the blind last played (sho
 var _menu_atlas_asked := false   # card pictures asked for once per connection (menu table)
 var _solatro_hints: Array = []   # times of Solatro's messages still floating (to stack them)
 var _solatro_cache := {}         # "scene" / "state": the game's latest, shown again when Solatro ends
-var _first_hint: Label3D         # "First time? Check How To Play" until they were opened once
+var _tut_run: TutorialRun        # the VR TUTORIAL from the menu table (uses _solatro_cache too)
+var _gesture := ""               # how the next command was given ("flick", "box" ...: for the VR TUTORIAL)
+var _first_hint: Label3D         # "First time in VR? ... VR-TUTORIAL sign" until the tutorial was played once
 var _standing := false           # standing mode: its own layout
 var _beat_time := 0.0
 var _last_chips := -1.0
@@ -6733,6 +7574,7 @@ var _number := RegEx.create_from_string("[0-9]+(\\.[0-9]+)?")
 
 
 func _animate_game_feel(delta: float) -> void:
+	_glide_released(delta)
 	_return_refused_cards()
 	# The Ox (takes your money for your most played hand): the coin pile trembles nervously
 	_coins.tremble = _boss_key == "bl_ox" and not _calm
@@ -6749,6 +7591,7 @@ func _animate_game_feel(delta: float) -> void:
 		_env.ambient_light_color = Color(0.2, 0.17, 0.26).lerp(Color(0.02, 0.015, 0.03), a)
 		_env.glow_intensity = 0.55 if _calm else 0.8 # Calm Lights: softer bloom halos
 		_env.fog_light_color = Color(0.2, 0.13, 0.26).lerp(Color(0.015, 0.01, 0.02), a)
+		_env.fog_density = 0.04 * (1.0 - _casino.void_amount()) # (naneinf: clear view into space)
 	_animate_hand_draw(delta)
 	_animate_flights(delta)
 	_animate_boss_intro(delta)
@@ -6766,6 +7609,16 @@ func _animate_game_feel(delta: float) -> void:
 
 # ---------------------------------------------------------------- the deck, the hand, the discard pile
 
+## Cards let go to be played glide straight onto the play stand while the game is still taking them
+## (it answers a moment later); from there they slide into their places on the stand.
+func _glide_released(delta: float) -> void:
+	var k := 1.0 - exp(-12.0 * delta)
+	for id in _released.keys():
+		var card = _hand_cards.get(id)
+		if card is Node3D and is_instance_valid(card) and card.has_meta("toss"):
+			card.global_transform = card.global_transform.interpolate_with(card.get_meta("toss") as Transform3D, k)
+
+
 ## Cards let go to be played / discarded that are still in the hand after a while: the game
 ## didn't take them – back into the card hand.
 func _return_refused_cards() -> void:
@@ -6778,6 +7631,7 @@ func _return_refused_cards() -> void:
 			continue
 		_released.erase(id)
 		if _hand_cards.has(id) and is_instance_valid(_hand_cards[id]) and _fan_anchor != null:
+			_hand_cards[id].remove_meta("toss")
 			_hand_cards[id].reparent(_fan_anchor, true)
 			back = true
 	if back:
@@ -7332,7 +8186,7 @@ func _run_end_scene(won: bool) -> void:
 			_end_spot.light_color = Color(1.0, 0.92, 0.8)
 			_end_spot.spot_angle = 14.0
 			_end_spot.spot_range = 3.5
-			_end_spot.shadow_enabled = true
+			_end_spot.shadow_enabled = not _perf # (performance mode: no shadow)
 			add_child(_end_spot)
 		_end_spot.light_energy = 0.0
 

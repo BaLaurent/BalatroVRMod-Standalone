@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_lv75k"]
+[ext_resource type="Material" path="res://jokers/models/j_baseball_mat.res" id="2_uigij"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_baseball.res" id="3_bmn0v"]
+
+[node name="j_baseball" type="Node3D" unique_id=1627074471]
+script = ExtResource("1_lv75k")
+
+[node name="Model" type="Node3D" parent="." unique_id=1944283454]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=1710269173]
+transform = Transform3D(0.113357976, 0.0062604644, 0.00025965957, -0.0062604644, 0.11296833, 0.009394307, 0.00025965957, -0.009394307, 0.11314137, -5.5915523e-05, 0.05659151, 0.0034179792)
+material_override = ExtResource("2_uigij")
+mesh = ExtResource("3_bmn0v")

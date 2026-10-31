@@ -1,0 +1,11 @@
+[gd_scene format=3]
+
+[ext_resource type="Material" path="res://jokers/models/solatro_shield_mat.res" id="1_l37il"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/solatro_shield.res" id="2_sr83h"]
+
+[node name="Token" type="Node3D" unique_id=762255300]
+
+[node name="Mesh" type="MeshInstance3D" parent="." unique_id=1703255004]
+transform = Transform3D(0.050627235, -0.00782269, -0.0016847488, 0.00782269, 0.04611108, 0.02096959, -0.0016847488, -0.02096959, 0.046739575, -0.0008448181, 0.028713388, -0.0017927046)
+material_override = ExtResource("1_l37il")
+mesh = ExtResource("2_sr83h")

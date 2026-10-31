@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_2qpja"]
+[ext_resource type="Material" path="res://jokers/models/j_flower_pot_mat.res" id="2_rk30p"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_flower_pot.res" id="3_afnon"]
+
+[node name="j_flower_pot" type="Node3D" unique_id=1181731462]
+script = ExtResource("1_2qpja")
+
+[node name="Model" type="Node3D" parent="." unique_id=1696719848]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=180267250]
+transform = Transform3D(0.12516621, 0.00045419176, 2.2152371e-05, -0.00045419176, 0.12457213, 0.01218057, 2.2152371e-05, -0.01218057, 0.12457296, 0.0007789715, 0.054835137, 0.01013922)
+material_override = ExtResource("2_rk30p")
+mesh = ExtResource("3_afnon")

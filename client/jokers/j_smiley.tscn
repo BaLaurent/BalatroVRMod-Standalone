@@ -1,0 +1,17 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_fquc0"]
+[ext_resource type="Material" path="res://jokers/models/j_smiley_mat.res" id="2_jjt2t"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_smiley.res" id="3_0gg6w"]
+
+[node name="j_smiley" type="Node3D" unique_id=834272899]
+script = ExtResource("1_fquc0")
+spin_node = NodePath("Model")
+spin_speed = 0.5
+
+[node name="Model" type="Node3D" parent="." unique_id=1350722851]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=1281404094]
+transform = Transform3D(0.0952957, -0.00074615626, -2.9872967e-07, 0.00074615626, 0.09529567, 7.630595e-05, -2.9872967e-07, -7.630595e-05, 0.09529859, -0.003265698, 0.04003851, -9.444394e-05)
+material_override = ExtResource("2_jjt2t")
+mesh = ExtResource("3_0gg6w")

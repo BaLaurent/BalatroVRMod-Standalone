@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_r5rw8"]
+[ext_resource type="Material" path="res://jokers/models/j_seeing_double_mat.res" id="2_oxoh1"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_seeing_double.res" id="3_ldowh"]
+
+[node name="j_seeing_double" type="Node3D" unique_id=593100279]
+script = ExtResource("1_r5rw8")
+
+[node name="Model" type="Node3D" parent="." unique_id=22463227]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=609737580]
+transform = Transform3D(0.12110673, -0.0068570375, 0.00014810698, 0.0068570375, 0.120993696, -0.005233383, 0.00014810698, 0.005233383, 0.121187754, -0.00042005017, 0.055450995, -0.00023689437)
+material_override = ExtResource("2_oxoh1")
+mesh = ExtResource("3_ldowh")

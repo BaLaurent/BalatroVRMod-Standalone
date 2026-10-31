@@ -1,0 +1,11 @@
+[gd_scene format=3]
+
+[ext_resource type="Material" path="res://jokers/models/solatro_extra_card_mat.res" id="1_6a2nl"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/solatro_extra_card.res" id="2_l0awv"]
+
+[node name="Token" type="Node3D" unique_id=1556466956]
+
+[node name="Mesh" type="MeshInstance3D" parent="." unique_id=1248441146]
+transform = Transform3D(0.053404, 0.009198508, -0.0011986326, -0.009198508, 0.051607333, -0.013787942, -0.0011986326, 0.013787942, 0.052406993, 0.0018402942, 0.025505807, 0.007922527)
+material_override = ExtResource("1_6a2nl")
+mesh = ExtResource("2_l0awv")

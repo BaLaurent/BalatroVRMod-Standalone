@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_dmqta"]
+[ext_resource type="Material" path="res://jokers/models/j_scary_face_mat.res" id="2_s2iws"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_scary_face.res" id="3_0x1ub"]
+
+[node name="j_scary_face" type="Node3D" unique_id=2114804912]
+script = ExtResource("1_dmqta")
+
+[node name="Model" type="Node3D" parent="." unique_id=1775029071]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=1845575767]
+transform = Transform3D(0.117557526, -0.001037008, -0.00011497972, 0.001037008, 0.11470217, 0.025752634, -0.00011497972, -0.025752634, 0.11470681, -0.00031533153, 0.05835084, -0.007977053)
+material_override = ExtResource("2_s2iws")
+mesh = ExtResource("3_0x1ub")

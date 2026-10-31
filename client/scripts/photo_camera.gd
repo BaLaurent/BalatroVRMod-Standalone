@@ -24,6 +24,7 @@ var _click: AudioStreamPlayer3D
 
 
 var polaroid := false              # "Say Cheese!" reward: photos get a white instant-photo frame
+var folder := "Photos"             # where photos go, next to the program (test mode: Photos/Feedback)
 
 func _ready() -> void:
 	var body := _mat(Color(0.12, 0.12, 0.14), 0.4, 0.2)
@@ -163,7 +164,7 @@ func take_photo() -> String:
 	# can't be written (e.g. under Program Files), the Pictures folder instead
 	var base := OS.get_executable_path().get_base_dir() if OS.has_feature("template") else ProjectSettings.globalize_path("res://").path_join("..")
 	var path := ""
-	for dir in [base.path_join("Photos"), OS.get_system_dir(OS.SYSTEM_DIR_PICTURES).path_join("Balatro in VR")]:
+	for dir in [base.path_join(folder), OS.get_system_dir(OS.SYSTEM_DIR_PICTURES).path_join("Balatro in VR").path_join(folder.trim_prefix("Photos"))]:
 		DirAccess.make_dir_recursive_absolute(dir)
 		path = dir.simplify_path().path_join(file)
 		if img.save_png(path) == OK:

@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_lhkpk"]
+[ext_resource type="Material" path="res://jokers/models/j_gluttenous_joker_mat.res" id="2_aywv4"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_gluttenous_joker.res" id="3_6fadb"]
+
+[node name="j_gluttenous_joker" type="Node3D" unique_id=1836524832]
+script = ExtResource("1_lhkpk")
+
+[node name="Model" type="Node3D" parent="." unique_id=485298394]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=424942744]
+transform = Transform3D(0.116822295, -0.0031165278, -0.00014815734, 0.0031165278, 0.11629536, 0.011084215, -0.00014815734, -0.011084215, 0.116337016, 0.0028391646, 0.05439897, 0.00054058025)
+material_override = ExtResource("2_aywv4")
+mesh = ExtResource("3_6fadb")

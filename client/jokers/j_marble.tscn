@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_o5x8i"]
+[ext_resource type="Material" path="res://jokers/models/j_marble_mat.res" id="2_1t3us"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_marble.res" id="3_ybuc6"]
+
+[node name="j_marble" type="Node3D" unique_id=1315890063]
+script = ExtResource("1_o5x8i")
+
+[node name="Model" type="Node3D" parent="." unique_id=218514053]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=1423281343]
+transform = Transform3D(0.13525517, 2.767095e-05, -4.2449456e-06, -2.767095e-05, 0.12903535, -0.040544286, -4.2449456e-06, 0.040544286, 0.12903535, -0.00042922428, 0.059186734, -0.00014224708)
+material_override = ExtResource("2_1t3us")
+mesh = ExtResource("3_ybuc6")

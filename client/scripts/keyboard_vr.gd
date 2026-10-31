@@ -97,6 +97,11 @@ func show_box(info: Dictionary) -> void:
 			(k["label"] as Label3D).text = n.to_lower() if _shift and _extended and not _caps_only else n
 
 
+## Lower case from the start (a photo's comment in test mode: SHIFT for capitals).
+func press_shift_default() -> void:
+	_shift = true
+
+
 func press(id: int) -> void:
 	var i := ID - id
 	if i < 0 or i >= _keys.size():

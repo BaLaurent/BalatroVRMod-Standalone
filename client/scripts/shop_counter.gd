@@ -201,7 +201,8 @@ func _ready() -> void:
 	GameFont.apply_to(use_hint)
 
 
-## The shop's items from the scene (areas shop_jokers / shop_vouchers / shop_booster).
+## The shop's items from the scene (areas shop_jokers / shop_vouchers / shop_booster). dollars: what
+## can still be spent (below 0 with Credit Card).
 func sync(items: Array, dollars: int) -> void:
 	_dollars = dollars
 	var alive := {}

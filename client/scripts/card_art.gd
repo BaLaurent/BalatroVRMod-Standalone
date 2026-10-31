@@ -41,12 +41,16 @@ static func add_atlas(data: Dictionary) -> void:
 	for key in _played_materials.keys():
 		if key.begins_with(name + "|"):
 			_played_materials.erase(key)
+	for key in _lucky_materials.keys():
+		if key.begins_with(name + "|"):
+			_lucky_materials.erase(key)
 	_edition_materials.clear() # they mix two atlases: simply rebuild them
 
 
 static func clear() -> void:
 	_atlases.clear()
 	_materials.clear()
+	_see_through.clear()
 
 
 ## Material showing cell `pos` ([x, y]) of atlas `name`, or null while that atlas has not arrived.
@@ -76,6 +80,22 @@ static func material(name, pos, blend := false) -> StandardMaterial3D:
 	mat.uv1_offset = Vector3(x * cell.x / size.x, y * cell.y / size.y, 0)
 	_materials[key] = mat
 	return mat
+
+
+## A Glass Card's base, but much more see-through (the card fan: the room and the cards behind show
+## through it; rank and suit lie on top in their own layer and stay solid). Cached per material.
+static var _see_through := {}
+
+
+static func see_through(mat: StandardMaterial3D, alpha: float) -> StandardMaterial3D:
+	if mat == null:
+		return null
+	var key := "%d|%.2f" % [mat.get_instance_id(), alpha]
+	if not _see_through.has(key):
+		var m := mat.duplicate() as StandardMaterial3D
+		m.albedo_color = Color(1, 1, 1, alpha)
+		_see_through[key] = m
+	return _see_through[key]
 
 
 ## Only the drawn part of a cell (a sticker is a small picture in a card-sized cell): a material showing
@@ -125,7 +145,7 @@ static func card_layers(it: Dictionary) -> Array:
 		if back != null:
 			layers.append(back)
 		return layers
-	var center := material(it.get("ca"), it.get("cp"))
+	var center: Material = material(it.get("ca"), it.get("cp")) # Material: Lucky Card swaps in a ShaderMaterial below
 	if center == null:
 		return layers
 	var debuffed: bool = it.get("db", false)
@@ -145,6 +165,8 @@ static func card_layers(it: Dictionary) -> Array:
 		return _with_overlays(layers, it)
 	if str(it.get("key", "")) == "m_glass": # Glass Card: its see-through parts stay see-through
 		center = material(it.get("ca"), it.get("cp"), true)
+	elif str(it.get("key", "")) == "m_lucky": # Lucky Card: its faint pattern drawn stronger
+		center = lucky_material(it.get("ca"), it.get("cp"))
 	layers.append(center)
 	var front := material(it.get("fa"), it.get("fp"))
 	if front != null:
@@ -270,6 +292,48 @@ static func _cell_scale(atlas: Dictionary) -> Vector2:
 	var cell: Vector2 = atlas["cell"]
 	var size: Vector2 = atlas["size"]
 	return Vector2(cell.x / size.x, cell.y / size.y)
+
+
+## A Lucky Card's base: in the game a pale pattern that is hard to see in the headset - its
+## contrast pulled apart and warmed towards gold, so a lucky card stands out in the hand.
+const LUCKY_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_back;
+uniform sampler2D atlas : source_color, filter_nearest_mipmap;
+uniform vec2 cell_offset;
+uniform vec2 cell_scale;
+
+void fragment() {
+	vec4 tex = texture(atlas, cell_offset + UV * cell_scale);
+	if (tex.a < 0.5) discard; // rounded card corners
+	float l = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
+	vec3 c = clamp((tex.rgb - vec3(l)) * 2.2 + vec3(1.0 - (1.0 - l) * 3.5), 0.0, 1.0);
+	ALBEDO = c * vec3(1.0, 0.93, 0.7);
+}
+"""
+static var _lucky_shader: Shader
+static var _lucky_materials := {}
+
+
+static func lucky_material(name, pos) -> Material:
+	if name == null or not (pos is Array) or pos.size() < 2 or not _atlases.has(str(name)):
+		return null
+	var key := "%s|%d|%d" % [name, int(pos[0]), int(pos[1])]
+	if _lucky_materials.has(key):
+		return _lucky_materials[key]
+	if _lucky_shader == null:
+		_lucky_shader = Shader.new()
+		_lucky_shader.code = LUCKY_SHADER
+	var atlas: Dictionary = _atlases[str(name)]
+	var cell: Vector2 = atlas["cell"]
+	var size: Vector2 = atlas["size"]
+	var mat := ShaderMaterial.new()
+	mat.shader = _lucky_shader
+	mat.set_shader_parameter("atlas", atlas["tex"])
+	mat.set_shader_parameter("cell_offset", Vector2(int(pos[0]) * cell.x / size.x, int(pos[1]) * cell.y / size.y))
+	mat.set_shader_parameter("cell_scale", Vector2(cell.x / size.x, cell.y / size.y))
+	_lucky_materials[key] = mat
+	return mat
 
 
 ## A played card in View Deck: washed-out grey, so the cards still in the deck stand out.

@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_gl3xx"]
+[ext_resource type="Material" path="res://jokers/models/j_ring_master_mat.res" id="2_m6hp2"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_ring_master.res" id="3_aimmo"]
+
+[node name="j_ring_master" type="Node3D" unique_id=720925671]
+script = ExtResource("1_gl3xx")
+
+[node name="Model" type="Node3D" parent="." unique_id=1387760384]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=307923646]
+transform = Transform3D(0.12193884, 0.00010767145, 9.321324e-07, -0.00010767145, 0.12192057, 0.0021111383, 9.321324e-07, -0.0021111383, 0.121920615, -0.00028776866, 0.05675479, -0.0005420095)
+material_override = ExtResource("2_m6hp2")
+mesh = ExtResource("3_aimmo")

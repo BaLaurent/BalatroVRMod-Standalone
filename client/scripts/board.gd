@@ -8,6 +8,7 @@ extends Node3D
 
 const SCALE := 0.06         # meters per room unit (20 units = 1.2 m wide)
 const Z_STEP := 0.00006     # depth per item: enough against z-fighting, small enough to look flat
+const POPUP_LIFT := 0.003   # tooltips float this far in front of the board (texts sit 0.0003 above their item)
 const FONT_SIZE := 48
 
 var room_size := Vector2(20, 11.5)
@@ -24,6 +25,7 @@ var compact_hud := false
 var hide_hud := false               # VR: no run panel at all (its parts are on the table: tower, stand, coins ...)
 var casino_skin := false            # VR: the game's grey panels in the casino's plum, big ones in a gold frame
 var _main_popup := {}               # this scene's first card tooltip (see _placement)
+var _in_popup := false              # the item being updated belongs to a tooltip (see _update_item)
 var hide_main_menu := false         # VR main menu on the table: the game's own menu panel is not drawn
 const COMPACT_KEEP := "/row_round/"                      # lower block of the run panel
 const COMPACT_DROP := ["/hud_hands/", "/hud_discards/"]  # ... minus hands and discards
@@ -34,6 +36,9 @@ const REPLACED_ROLES := ["SHOP_SIGN"]
 var anchors := {}
 ## Callable(owner_card_id: int) -> Node3D or null: where to show the tooltip of that card
 var popup_anchor_for: Callable
+## Callable(owner_card_id: int) -> bool: false = the VR client didn't ask for this card's tooltip
+## (the game opened it itself, e.g. under the PC's mouse cursor parked on the Balatro window): not drawn
+var popup_wanted: Callable
 
 ## Score flames (like the game's 'flame' shader): rise from the bottom of the chips/mult box,
 ## flicker, and grow with the intensity the game reports.
@@ -107,7 +112,7 @@ func apply_scene(scene: Dictionary) -> void:
 
 	_main_popup = {}
 	for gr in scene.get("groups", []): # the first tooltip that belongs to a card: the others line up with it
-		if str(gr.get("role", "")) == "popup" and gr.has("owner"):
+		if str(gr.get("role", "")) == "popup" and gr.has("owner") and _popup_ok(gr):
 			_main_popup = gr
 			break
 	var containers := {}
@@ -133,6 +138,8 @@ func apply_scene(scene: Dictionary) -> void:
 				or (kind == "c" and it.get("area", "") in ["jokers", "consumeables", "shop_jokers", "shop_vouchers", "shop_booster"])):
 			continue
 		if _hidden_in_compact(it, group_role):
+			continue
+		if group_role == "popup" and not _popup_ok(group_info.get(gid, {})):
 			continue
 		# VR main menu: the casino table is the menu (buzzer, stack, album ...); menus opened from it
 		# (options, collection, run setup) still show on the board
@@ -161,7 +168,9 @@ func apply_scene(scene: Dictionary) -> void:
 			_visuals[id] = v
 		elif v.get_parent() != container:
 			v.reparent(container, false)
+		_in_popup = group_role == "popup"
 		_update_item(v, kind, it, i)
+		_in_popup = false
 		if i < under_overlay:
 			var text := v.get_node_or_null("Label") as Label3D
 			if text != null:
@@ -232,7 +241,16 @@ func _container_for(gid: int, g: Dictionary, group_info: Dictionary, role_rect: 
 	elif c.get_parent() != parent:
 		c.reparent(parent, false)
 	c.position = placement[1]
+	if str(g.get("role", "")) == "popup":
+		# a tooltip (e.g. of the skip tag on the blind select) lies over the panels next to it: the
+		# texts there ("Score at least 1,200", "$$$$+") must not shine through it
+		c.position.z += POPUP_LIFT
 	return c
+
+
+## A card tooltip is drawn only if the VR client hovered that card (see popup_wanted).
+func _popup_ok(g: Dictionary) -> bool:
+	return not g.has("owner") or not popup_wanted.is_valid() or popup_wanted.call(int(g["owner"]))
 
 
 ## Returns [parent node, offset]: the offset moves the reference rect's center onto the parent's origin.
@@ -508,8 +526,9 @@ static func set_flame(flame: MeshInstance3D, it: Dictionary, hard_edges: bool, p
 ## depth pre-pass instead, and text is drawn after the panels anyway.
 func _text_sorting(label: Label3D) -> void:
 	label.alpha_cut = Label3D.ALPHA_CUT_DISCARD if opaque_mode else Label3D.ALPHA_CUT_OPAQUE_PREPASS
-	label.render_priority = 10
-	label.outline_render_priority = 9
+	# a tooltip's own text comes after the tooltip's panels, which come after the board's texts
+	label.render_priority = 30 if _in_popup else 10
+	label.outline_render_priority = 29 if _in_popup else 9
 
 
 ## The game's neutral panel greys (not the coloured buttons, not white text boxes or black shadows).
@@ -543,7 +562,8 @@ func _set_rim(v: Node3D, size: Vector2, on: bool) -> void:
 
 
 func _surface(c: Color) -> Color:
-	if not opaque_mode or c.a >= 0.999:
+	# tooltips are solid too: the board's texts behind them would otherwise show through
+	if not (opaque_mode or _in_popup) or c.a >= 0.999:
 		return c
 	if c.a < 0.2:
 		return Color(0, 0, 0, 0)
@@ -567,6 +587,7 @@ func _set_quad(v: Node3D, size: Vector2, colour: Color, visible_quad: bool) -> v
 	mesh.visible = true
 	mesh.scale = Vector3(size.x, size.y, 1.0)
 	var mat: StandardMaterial3D = mesh.material_override
+	mat.render_priority = 20 if _in_popup else 0 # (only matters if see-through: drawn after the board's texts)
 	if mat.albedo_color != colour:
 		mat.albedo_color = colour
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA if colour.a < 0.999 else BaseMaterial3D.TRANSPARENCY_DISABLED

@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_yggq7"]
+[ext_resource type="Material" path="res://jokers/models/j_stuntman_mat.res" id="2_1ktnt"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_stuntman.res" id="3_2sqbb"]
+
+[node name="j_stuntman" type="Node3D" unique_id=1428984273]
+script = ExtResource("1_yggq7")
+
+[node name="Model" type="Node3D" parent="." unique_id=512743110]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=1718849724]
+transform = Transform3D(0.11759471, 0, 0, 0, 0.11759471, 0, 0, 0, 0.11759471, -0.0004145691, 0.058115415, -0.0006369935)
+material_override = ExtResource("2_1ktnt")
+mesh = ExtResource("3_2sqbb")

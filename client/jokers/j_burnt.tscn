@@ -1,0 +1,16 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_juy7f"]
+[ext_resource type="Material" path="res://jokers/models/j_burnt_mat.res" id="2_yx3eo"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_burnt.res" id="3_ljkje"]
+
+[node name="j_burnt" type="Node3D" unique_id=1710637161]
+script = ExtResource("1_juy7f")
+shake_node = NodePath("Model")
+
+[node name="Model" type="Node3D" parent="." unique_id=1928846901]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=577944577]
+transform = Transform3D(0.13093801, 0.00030530046, -1.5674888e-05, -0.00030530046, 0.1302495, -0.013410037, -1.5674888e-05, 0.013410037, 0.13024986, -0.00018495186, 0.05714196, -0.00012049421)
+material_override = ExtResource("2_yx3eo")
+mesh = ExtResource("3_ljkje")

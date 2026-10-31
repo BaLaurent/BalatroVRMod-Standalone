@@ -1,0 +1,17 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_vtv1q"]
+[ext_resource type="Material" path="res://jokers/models/j_fibonacci_mat.res" id="2_u7id7"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_fibonacci.res" id="3_33lnj"]
+
+[node name="j_fibonacci" type="Node3D" unique_id=891932612]
+script = ExtResource("1_vtv1q")
+spin_node = NodePath("Model")
+spin_speed = 0.5
+
+[node name="Model" type="Node3D" parent="." unique_id=154993016]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=948110028]
+transform = Transform3D(0.09152797, -0.0012386685, -5.9850598e-05, 0.0012386685, 0.09110157, 0.008824791, -5.9850598e-05, -0.008824791, 0.09110997, -0.00026229414, 0.040069256, 0.0009618691)
+material_override = ExtResource("2_u7id7")
+mesh = ExtResource("3_33lnj")

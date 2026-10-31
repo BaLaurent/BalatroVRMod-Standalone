@@ -12,7 +12,7 @@ const PER_PAGE := 13              # rows' worth of height per page (a group's he
 const HEAD := 0.026                # height of a group's heading
 ## The groups, by what the reward changes, each with its colour (a heading, and a strip on its rows).
 const GROUPS := [
-	["GLOVES & BEAM", Color(0.4, 0.75, 1.0), ["pack_rat", "ambidextrous", "hand_model", "laser_pointer", "long_haul"]],
+	["GLOVES & BEAM", Color(0.4, 0.75, 1.0), ["tutorial", "pack_rat", "ambidextrous", "hand_model", "laser_pointer", "long_haul"]],
 	["TABLE & FELT", Color(0.25, 0.75, 0.45), ["neat_freak", "high_roller", "nope_x5", "giga_dweeb", "collector", "bowling",
 		"coin_slot", "peeking", "price_check", "fortune_teller", "real_full_house", "up_close", "glass_breaker"]],
 	["SHOP", Color(1.0, 0.6, 0.15), ["big_spender", "one_armed", "lever_frenzy", "window_shopper", "hands_on", "bargain"]],

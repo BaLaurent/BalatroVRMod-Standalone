@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_8ai6y"]
+[ext_resource type="Material" path="res://jokers/models/j_hiker_mat.res" id="2_8s2kb"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_hiker.res" id="3_ccjjh"]
+
+[node name="j_hiker" type="Node3D" unique_id=1729544857]
+script = ExtResource("1_8ai6y")
+
+[node name="Model" type="Node3D" parent="." unique_id=180307102]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=222069648]
+transform = Transform3D(0.122600675, -0.017955862, 0.0021521861, 0.017955862, 0.119109124, -0.029130297, 0.0021521861, 0.029130297, 0.12043572, -0.0007491532, 0.057511017, -0.00085299276)
+material_override = ExtResource("2_8s2kb")
+mesh = ExtResource("3_ccjjh")

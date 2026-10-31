@@ -1,0 +1,175 @@
+﻿Balatro in VR - File names for your own joker models
+=====================================================
+
+How it works:
+- Put a 3D model (.glb or .gltf) into the folder
+    %APPDATA%\Godot\app_userdata\Balatro in VR\custom_jokers\
+  or into a folder "custom_jokers" right next to Balatro in VR.exe.
+- The file must be named exactly like the key in the first column, e.g. j_popcorn.glb.
+  Leaving out the "j_" works too (popcorn.glb). All lower case, underscores instead of spaces.
+- Careful, a few keys are spelled differently from the joker's name in the game itself:
+    Seltzer = j_selzer, Mr. Bones = j_mr_bones, Riff-raff = j_riff_raff, Seance = j_seance,
+    Joker Stencil = j_stencil, Cloud 9 = j_cloud_9, Golden Ticket = j_ticket,
+    Gluttonous Joker = j_gluttenous_joker (sic), ...
+  So always use the key from this list, not the name shown in the game.
+- Optional: a .json file with the same name next to it, e.g. j_popcorn.json:
+    {"height": 0.15, "rotation": [0, 90, 0]}
+  (height in metres, default 0.11; rotation in degrees around X, Y, Z).
+- Your model replaces the joker's figure the next time the game starts.
+- "VR: 3D Jokers: Custom Only" (VR Settings) shows only your own figures; all other jokers
+  stand on their pedestal as cards.
+
+No.  File name (key)          Joker
+------------------------------------------------------------
+  1  j_joker                  Joker
+  2  j_greedy_joker           Greedy Joker
+  3  j_lusty_joker            Lusty Joker
+  4  j_wrathful_joker         Wrathful Joker
+  5  j_gluttenous_joker       Gluttonous Joker
+  6  j_jolly                  Jolly Joker
+  7  j_zany                   Zany Joker
+  8  j_mad                    Mad Joker
+  9  j_crazy                  Crazy Joker
+ 10  j_droll                  Droll Joker
+ 11  j_sly                    Sly Joker
+ 12  j_wily                   Wily Joker
+ 13  j_clever                 Clever Joker
+ 14  j_devious                Devious Joker
+ 15  j_crafty                 Crafty Joker
+ 16  j_half                   Half Joker
+ 17  j_stencil                Joker Stencil
+ 18  j_four_fingers           Four Fingers
+ 19  j_mime                   Mime
+ 20  j_credit_card            Credit Card
+ 21  j_ceremonial             Ceremonial Dagger
+ 22  j_banner                 Banner
+ 23  j_mystic_summit          Mystic Summit
+ 24  j_marble                 Marble Joker
+ 25  j_loyalty_card           Loyalty Card
+ 26  j_8_ball                 8 Ball
+ 27  j_misprint               Misprint
+ 28  j_dusk                   Dusk
+ 29  j_raised_fist            Raised Fist
+ 30  j_chaos                  Chaos the Clown
+ 31  j_fibonacci              Fibonacci
+ 32  j_steel_joker            Steel Joker
+ 33  j_scary_face             Scary Face
+ 34  j_abstract               Abstract Joker
+ 35  j_delayed_grat           Delayed Gratification
+ 36  j_hack                   Hack
+ 37  j_pareidolia             Pareidolia
+ 38  j_gros_michel            Gros Michel
+ 39  j_even_steven            Even Steven
+ 40  j_odd_todd               Odd Todd
+ 41  j_scholar                Scholar
+ 42  j_business               Business Card
+ 43  j_supernova              Supernova
+ 44  j_ride_the_bus           Ride the Bus
+ 45  j_space                  Space Joker
+ 46  j_egg                    Egg
+ 47  j_burglar                Burglar
+ 48  j_blackboard             Blackboard
+ 49  j_runner                 Runner
+ 50  j_ice_cream              Ice Cream
+ 51  j_dna                    DNA
+ 52  j_splash                 Splash
+ 53  j_blue_joker             Blue Joker
+ 54  j_sixth_sense            Sixth Sense
+ 55  j_constellation          Constellation
+ 56  j_hiker                  Hiker
+ 57  j_faceless               Faceless Joker
+ 58  j_green_joker            Green Joker
+ 59  j_superposition          Superposition
+ 60  j_todo_list              To Do List
+ 61  j_cavendish              Cavendish
+ 62  j_card_sharp             Card Sharp
+ 63  j_red_card               Red Card
+ 64  j_madness                Madness
+ 65  j_square                 Square Joker
+ 66  j_seance                 Séance
+ 67  j_riff_raff              Riff-Raff
+ 68  j_vampire                Vampire
+ 69  j_shortcut               Shortcut
+ 70  j_hologram               Hologram
+ 71  j_vagabond               Vagabond
+ 72  j_baron                  Baron
+ 73  j_cloud_9                Cloud 9
+ 74  j_rocket                 Rocket
+ 75  j_obelisk                Obelisk
+ 76  j_midas_mask             Midas Mask
+ 77  j_luchador               Luchador
+ 78  j_photograph             Photograph
+ 79  j_gift                   Gift Card
+ 80  j_turtle_bean            Turtle Bean
+ 81  j_erosion                Erosion
+ 82  j_reserved_parking       Reserved Parking
+ 83  j_mail                   Mail-In Rebate
+ 84  j_to_the_moon            To the Moon
+ 85  j_hallucination          Hallucination
+ 86  j_fortune_teller         Fortune Teller
+ 87  j_juggler                Juggler
+ 88  j_drunkard               Drunkard
+ 89  j_stone                  Stone Joker
+ 90  j_golden                 Golden Joker
+ 91  j_lucky_cat              Lucky Cat
+ 92  j_baseball               Baseball Card
+ 93  j_bull                   Bull
+ 94  j_diet_cola              Diet Cola
+ 95  j_trading                Trading Card
+ 96  j_flash                  Flash Card
+ 97  j_popcorn                Popcorn
+ 98  j_trousers               Spare Trousers
+ 99  j_ancient                Ancient Joker
+100  j_ramen                  Ramen
+101  j_walkie_talkie          Walkie Talkie
+102  j_selzer                 Seltzer
+103  j_castle                 Castle
+104  j_smiley                 Smiley Face
+105  j_campfire               Campfire
+106  j_ticket                 Golden Ticket
+107  j_mr_bones               Mr. Bones
+108  j_acrobat                Acrobat
+109  j_sock_and_buskin        Sock and Buskin
+110  j_swashbuckler           Swashbuckler
+111  j_troubadour             Troubadour
+112  j_certificate            Certificate
+113  j_smeared                Smeared Joker
+114  j_throwback              Throwback
+115  j_hanging_chad           Hanging Chad
+116  j_rough_gem              Rough Gem
+117  j_bloodstone             Bloodstone
+118  j_arrowhead              Arrowhead
+119  j_onyx_agate             Onyx Agate
+120  j_glass                  Glass Joker
+121  j_ring_master            Showman
+122  j_flower_pot             Flower Pot
+123  j_blueprint              Blueprint
+124  j_wee                    Wee Joker
+125  j_merry_andy             Merry Andy
+126  j_oops                   Oops! All 6s
+127  j_idol                   The Idol
+128  j_seeing_double          Seeing Double
+129  j_matador                Matador
+130  j_hit_the_road           Hit the Road
+131  j_duo                    The Duo
+132  j_trio                   The Trio
+133  j_family                 The Family
+134  j_order                  The Order
+135  j_tribe                  The Tribe
+136  j_stuntman               Stuntman
+137  j_invisible              Invisible Joker
+138  j_brainstorm             Brainstorm
+139  j_satellite              Satellite
+140  j_shoot_the_moon         Shoot the Moon
+141  j_drivers_license        Driver's License
+142  j_cartomancer            Cartomancer
+143  j_astronomer             Astronomer
+144  j_burnt                  Burnt Joker
+145  j_bootstraps             Bootstraps
+146  j_caino                  Canio
+147  j_triboulet              Triboulet
+148  j_yorick                 Yorick
+149  j_chicot                 Chicot
+150  j_perkeo                 Perkeo
+
+150 jokers.

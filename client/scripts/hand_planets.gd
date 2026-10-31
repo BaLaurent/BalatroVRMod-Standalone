@@ -185,11 +185,21 @@ func set_halved(on: bool) -> void:
 		return
 	halved = on
 	for p in _planets.values():
-		(p["label"] as Label3D).text = _label_text(str(p.get("name", "")), int(p["level"]))
+		(p["label"] as Label3D).text = _label_text(p)
 
 
-func _label_text(name: String, level: int) -> String:
-	return "%s  Lv.%d%s" % [name, level, "  (halved)" if halved else ""]
+## Like the game's Run Info: the level, chips x mult and how often the hand was played this run.
+func _label_text(p: Dictionary) -> String:
+	var t := "%s  Lv.%d%s" % [str(p.get("name", "")), int(p["level"]), "  (halved)" if halved else ""]
+	if p.has("chips"): # (an older mod only sends the level)
+		t += "\n%s Chips  x  %s Mult" % [_num(float(p["chips"])), _num(float(p["mult"]))]
+	if p.has("played"):
+		t += "\nPlayed: %d" % int(p["played"])
+	return t
+
+
+static func _num(v: float) -> String:
+	return str(int(v)) if v == floor(v) and absf(v) < 1e15 else String.num(v, 1)
 
 
 func set_levels(levels: Array) -> void:
@@ -207,8 +217,15 @@ func set_levels(levels: Array) -> void:
 		if int(p["level"]) != level:
 			p["level"] = level
 			p["grow"] = 0.0 # pop when it levels up
-			p["name"] = name
-			(p["label"] as Label3D).text = _label_text(name, level)
+		p["name"] = name
+		if h.has("chips") and h.has("mult"):
+			p["chips"] = h["chips"]
+			p["mult"] = h["mult"]
+		if h.has("played"):
+			p["played"] = h["played"]
+		var text := _label_text(p)
+		if (p["label"] as Label3D).text != text:
+			(p["label"] as Label3D).text = text
 	for name in _planets.keys():
 		if not alive.has(name):
 			(_planets[name]["node"] as Node3D).queue_free()
@@ -276,6 +293,7 @@ func _make_planet(hand: String) -> Dictionary:
 	label.pixel_size = 0.0016
 	label.outline_size = 8
 	label.modulate = Color(1, 1, 1, 0.85)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_TOP # (several lines: they hang down from under the planet)
 	node.add_child(label)
 	return {"node": node, "body": body, "label": label, "level": 0, "grow": 1.0, "slot": 0.0}
 
@@ -298,4 +316,4 @@ func _process(delta: float) -> void:
 		var a: float = p["at"] + _time * SPEED # all planets circle the room together, keeping their distance
 		var node: Node3D = p["node"]
 		node.position = Vector3(cos(a) * ORBIT_RADIUS, lerpf(ORBIT_HEIGHT * 0.5 - HALVED_DROP, ORBIT_HEIGHT, (_height_k - 0.5) * 2.0) - ARM_DROP * _arm_k + 0.1 * sin(_time * 0.3 + slot * 3.0), sin(a) * ORBIT_RADIUS)
-		(p["label"] as Label3D).position = Vector3(0, -size * 0.5 - 0.1, 0)
+		(p["label"] as Label3D).position = Vector3(0, -size * 0.5 - 0.06, 0)

@@ -331,7 +331,10 @@ func _add_picture(node: Node3D, it: Dictionary) -> void:
 func _fit(model: Node3D, max_h: float, max_w: float) -> void:
 	var box := AABB()
 	var first := true
-	for mi in model.find_children("*", "MeshInstance3D", true, false):
+	if model.has_meta("bounds"): # (a player's own model knows its outline: rigged meshes don't)
+		box = model.get_meta("bounds")
+		first = false
+	for mi in ([] if not first else model.find_children("*", "MeshInstance3D", true, false)):
 		var m := mi as MeshInstance3D
 		if m.mesh == null:
 			continue

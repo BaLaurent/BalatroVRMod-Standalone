@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_702cw"]
+[ext_resource type="Material" path="res://jokers/models/j_acrobat_mat.res" id="2_8hoyk"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_acrobat.res" id="3_j80gp"]
+
+[node name="j_acrobat" type="Node3D" unique_id=1024356702]
+script = ExtResource("1_702cw")
+glow_node = NodePath("Model")
+glow_source = "float(run[\"hands_left\"] == 1)"
+glow_energy = 0.44999999999999996
+
+[node name="Model" type="Node3D" parent="." unique_id=974641492]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=338817799]
+transform = Transform3D(0.117764115, 0, 0, 0, 0.117764115, 0, 0, 0, 0.117764115, -0.00085079035, 0.058029655, -0.011475097)
+material_override = ExtResource("2_8hoyk")
+mesh = ExtResource("3_j80gp")

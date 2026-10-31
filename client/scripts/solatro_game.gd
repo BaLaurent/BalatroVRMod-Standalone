@@ -1158,8 +1158,13 @@ func _mat(colour: Color, rough: float, metal: float) -> StandardMaterial3D:
 #   Extra Card      a card sticking out of a card shoe     Extra Discard  a golden waste bin
 #   Pocket Points   a leather pouch spilling chips, "+25"   Extra Hand     a white glove, finger up
 #   Double Score    a little "x2" sign                      Shield         a green and gold shield
+# A token with a generated figure (solatro/tokens/<key>.tscn, tools/build_solatro_tokens.gd) shows
+# that one; the others are built from code below.
 
 static func token_model(key: String) -> Node3D:
+	var scene_path := "res://solatro/tokens/%s.tscn" % key
+	if ResourceLoader.exists(scene_path):
+		return (load(scene_path) as PackedScene).instantiate()
 	var root := Node3D.new()
 	root.name = "Token"
 	match key:

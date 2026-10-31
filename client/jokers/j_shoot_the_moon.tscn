@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_k5xdw"]
+[ext_resource type="Material" path="res://jokers/models/j_shoot_the_moon_mat.res" id="2_uxetf"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_shoot_the_moon.res" id="3_acgbp"]
+
+[node name="j_shoot_the_moon" type="Node3D" unique_id=1127340394]
+script = ExtResource("1_k5xdw")
+
+[node name="Model" type="Node3D" parent="." unique_id=1504584455]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=1676303920]
+transform = Transform3D(0.122679986, -0.002310652, 1.620838e-05, 0.002310652, 0.12266791, -0.0017211783, 1.620838e-05, 0.0017211783, 0.122689664, -9.829653e-05, 0.0549898, -0.0002029904)
+material_override = ExtResource("2_uxetf")
+mesh = ExtResource("3_acgbp")

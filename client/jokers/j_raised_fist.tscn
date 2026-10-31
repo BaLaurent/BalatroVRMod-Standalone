@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_h60ox"]
+[ext_resource type="Material" path="res://jokers/models/j_raised_fist_mat.res" id="2_3vmht"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_raised_fist.res" id="3_pp6t4"]
+
+[node name="j_raised_fist" type="Node3D" unique_id=1664145022]
+script = ExtResource("1_h60ox")
+
+[node name="Model" type="Node3D" parent="." unique_id=1469106760]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=175458092]
+transform = Transform3D(0.11183319, 0.004461352, 0.00033311063, -0.004461352, 0.11059267, 0.016614294, 0.00033311063, -0.016614294, 0.110682115, -0.00047850696, 0.05987776, 0.0022352727)
+material_override = ExtResource("2_3vmht")
+mesh = ExtResource("3_pp6t4")

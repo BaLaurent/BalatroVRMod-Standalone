@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_wm7lg"]
+[ext_resource type="Material" path="res://jokers/models/j_even_steven_mat.res" id="2_k7d4n"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_even_steven.res" id="3_d0pdw"]
+
+[node name="j_even_steven" type="Node3D" unique_id=1195348217]
+script = ExtResource("1_wm7lg")
+
+[node name="Model" type="Node3D" parent="." unique_id=1953052166]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=1170095130]
+transform = Transform3D(0.13074231, 0.0007278537, -1.2800111e-05, -0.0007278537, 0.13066147, -0.0045971093, -1.2800111e-05, 0.0045971093, 0.1306635, -0.00024843402, 0.05604658, 0.0038494524)
+material_override = ExtResource("2_k7d4n")
+mesh = ExtResource("3_d0pdw")

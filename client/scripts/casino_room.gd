@@ -52,6 +52,7 @@ var _mood_flash := 0.0
 var _mood_time := 0.0
 var _tension := false               # the last hand: neon dimmed
 var calm := false                   # Calm Lights: no flashes or flicker, see set_calm()
+var _table_spot: SpotLight3D        # the pendant lamp over the table (casts the shadows)
 const CALM_DIM := 0.45              # how dim the room always is with Calm Lights
 var _tension_amount := 0.0
 var _room_spots: Array[SpotLight3D] = [] # ceiling spots over the machines (dimmed in the last hand)
@@ -93,6 +94,10 @@ var _live: Label3D
 var _star_sky: MultiMeshInstance3D
 var _endless: Label3D
 var _leather: StandardMaterial3D
+var _back_wall: Node3D
+var _void: Node3D                  # NaneinfVoid: the room comes apart (the score overflowed)
+var _club: Label3D                 # achievement reward "Overflow": NANEINF CLUB under the Hall of Fame
+var _club_time := 0.0
 
 
 func _ready() -> void:
@@ -170,6 +175,17 @@ func set_calm(on: bool) -> void:
 		_machines.calm = on
 	if _boss_room != null:
 		_boss_room.apply(_boss_room._key, on) # (bubbles, waves, racing machines off or on)
+
+
+## Performance mode (slower PCs): the ceiling spots over the machines and the side room lights go
+## out (the neon and the table lamp stay), and the table lamp casts no shadows.
+func set_performance(on: bool) -> void:
+	for s in _room_spots:
+		s.visible = not on
+	for d in _dimmed_lights:
+		(d["light"] as Light3D).visible = not on
+	if _table_spot != null:
+		_table_spot.shadow_enabled = not on
 
 
 ## The run is won: every slot machine hits the jackpot, bells and coins all around.
@@ -314,6 +330,7 @@ func _process(delta: float) -> void:
 	_flicker.modulate.a = 1.0
 	_update_spectral_sign(delta)
 	_update_clock(delta)
+	_update_club(delta)
 	var whirl := 1.0 + 4.0 * clampf(_spectral_time, 0.0, 1.0) # the ghost cards whirl while the sign haunts
 	for g in _ghost_cards: # the spectral cards drift and turn slowly
 		g["spin"] = float(g.get("spin", 0.0)) + delta * 0.6 * whirl
@@ -425,6 +442,48 @@ func set_wall_name(name: String) -> void:
 		_vradar_sign.pixel_size = 0.0028 * clampf(16.0 / maxf(_vradar_sign.text.length(), 1), 1.0, 1.8) # (a short name: bigger)
 
 
+## The score overflowed ("naneinf"): the room comes apart into space around you and the card
+## table, and comes back together after a while (NaneinfVoid). `center`: where your head is.
+func naneinf(center: Vector3) -> void:
+	if not visible:
+		return
+	if _void == null:
+		_void = preload("res://scripts/naneinf_void.gd").new()
+		_void.room = self
+		_void.keep = [_table, _table_base]
+		add_child(_void)
+	_void.calm = calm
+	_void.start(center)
+	pulse(3.0)
+
+
+## 0 .. 1: how much of the room is gone right now (main.gd thins the fog with it).
+func void_amount() -> float:
+	return _void.amount() if _void != null else 0.0
+
+
+## Achievement reward "Overflow": a NANEINF CLUB neon under the Hall of Fame that glitches now and then.
+func set_naneinf_club(on: bool) -> void:
+	if on and _club == null and _back_wall != null:
+		_club = _neon("NANEINF CLUB", Vector3.ZERO, 0.0, Color(3.4, 0.45, 0.6), 0.0022)
+		_club.reparent(_back_wall, false)
+		_club.position = Vector3(-2.95, 1.02, 0.07)
+	if _club != null:
+		_club.visible = on
+
+
+func _update_club(delta: float) -> void:
+	if _club == null or not _club.visible:
+		return
+	_club_time += delta
+	var cycle := fmod(_club_time, 6.0)
+	var glitch := cycle > 5.4 and not calm # every 6 s a short glitch: the number breaks the letters
+	var text: String = ["NaN EINF CLUB", "NANE1NF CLU8", "1.#INF CLUB", "N@NEINF CLUB"][int(_club_time / 6.0) % 4] if glitch else "NANEINF CLUB"
+	if _club.text != text:
+		_club.text = text
+	_club.position.x = -2.95 + (0.012 * sin(_club_time * 90.0) if glitch else 0.0)
+
+
 ## Achievement reward "Mountain Climber": a flag on the chip mountain's summit.
 func set_summit_flag(on: bool) -> void:
 	_summit_flag = on
@@ -467,6 +526,7 @@ func _build_walls() -> void:
 	var back := ROOM_CENTER_Z - ROOM_HALF.y
 	var front := ROOM_CENTER_Z + ROOM_HALF.y
 	var back_wall := _wall(Vector3(0, 0, back), ROOM_HALF.x * 2.0, 0.0, paper)
+	_back_wall = back_wall
 	_build_halls(back_wall)
 	# behind the player, left of the bar: the open doorway to the Ante Room (local x = -world x)
 	var ante := Vector3(-ANTE_ROOM_X, ANTE_DOOR.x, ANTE_DOOR.y)
@@ -800,6 +860,7 @@ func _build_card_table() -> void:
 	spot.position = Vector3(lamp_x, 1.4, -0.1)
 	spot.rotation_degrees.x = -90.0
 	_table.add_child(spot)
+	_table_spot = spot
 
 
 func _chip_stack(parent: Node3D, pos: Vector3, count: int, colour: Color) -> void:

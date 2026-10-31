@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_sa4gc"]
+[ext_resource type="Material" path="res://jokers/models/j_hack_mat.res" id="2_xqrqu"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_hack.res" id="3_1xnlu"]
+
+[node name="j_hack" type="Node3D" unique_id=58538756]
+script = ExtResource("1_sa4gc")
+
+[node name="Model" type="Node3D" parent="." unique_id=666678604]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=998180369]
+transform = Transform3D(0.11537609, 0.00021852428, -1.2347591e-05, -0.00021852428, 0.1146417, -0.012997036, -1.2347591e-05, 0.012997036, 0.11464191, 5.600771e-05, 0.05076291, 0.011989438)
+material_override = ExtResource("2_xqrqu")
+mesh = ExtResource("3_1xnlu")

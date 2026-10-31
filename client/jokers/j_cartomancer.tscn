@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_67eby"]
+[ext_resource type="Material" path="res://jokers/models/j_cartomancer_mat.res" id="2_vqci6"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_cartomancer.res" id="3_umge0"]
+
+[node name="j_cartomancer" type="Node3D" unique_id=298978311]
+script = ExtResource("1_67eby")
+
+[node name="Model" type="Node3D" parent="." unique_id=586831954]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=256805031]
+transform = Transform3D(0.11601793, 0.0003914094, -3.088598e-05, -0.0003914094, 0.11458204, -0.018196616, -3.088598e-05, 0.018196616, 0.1145827, -0.00025045124, 0.050803106, 0.0005572237)
+material_override = ExtResource("2_vqci6")
+mesh = ExtResource("3_umge0")

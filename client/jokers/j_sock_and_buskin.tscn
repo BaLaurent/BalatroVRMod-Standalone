@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_jtcnp"]
+[ext_resource type="Material" path="res://jokers/models/j_sock_and_buskin_mat.res" id="2_qlyej"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_sock_and_buskin.res" id="3_xbwqq"]
+
+[node name="j_sock_and_buskin" type="Node3D" unique_id=987354400]
+script = ExtResource("1_jtcnp")
+
+[node name="Model" type="Node3D" parent="." unique_id=593036011]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=135839819]
+transform = Transform3D(0.1511107, 0, 0, 0, 0.1511107, 0, 0, 0, 0.1511107, -0.00060387305, 0.047349047, 0.008208663)
+material_override = ExtResource("2_qlyej")
+mesh = ExtResource("3_xbwqq")

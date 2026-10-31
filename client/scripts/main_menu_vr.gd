@@ -6,16 +6,17 @@ extends Node3D
 ##   COLLECTION a card album, OPTIONS a reception bell, a YouTube sign
 ##   QUIT ONLY VR / QUIT VR AND GAME  two exit signs at the back
 ##   SOLATRO   a little spread of cards on felt: the solo card game, played on its own (SolatroGame)
+##   VR-TUTORIAL  a neon sign in the middle at the back, high over the signs there: Jimbo's step-by-step tutorial (TutorialRun)
 ## A name plate shows the profile (point at it and pull the trigger: the game's profile select) (the BALATRO in VR sign is on the back wall). Positions are in the joker board's space (x right, +z towards you, y up), so the
 ## menu sits where the board is calibrated. main.gd turns presses into commands for the game.
 
 signal pressed(action: String)
 
-const ACTIONS := ["play", "continue", "collection", "options", "youtube", "quit_vr", "quit_both", "solatro", "profile"]
+const ACTIONS := ["play", "continue", "collection", "options", "youtube", "quit_vr", "quit_both", "solatro", "profile", "tutorial"]
 const BASE_ID := -300              # target ids of the objects: BASE_ID - index in ACTIONS
 const TOUCH_RADIUS := 0.07         # a hand this close to the buzzer's top presses it
 const CARD := Vector2(0.071, 0.095)
-const VERSION := "1.0"       # shown at the front edge of the menu table
+const VERSION := "1.1"       # shown at the front edge of the menu table
 
 var hands: Array = []              # XRController3D: hands that can slap the buzzer
 
@@ -33,6 +34,8 @@ var _has_save := false
 var _exit_labels := {}             # action -> [Label3D, its normal text]
 var _solatro_cards: Array = []     # [node, rank column, suit row] of the cards on the Solatro felt
 var _solatro_art := false
+var _tutorial_glow: Label3D        # the VR-TUTORIAL sign's neon (it pulses a little)
+var _time := 0.0
 
 
 func _ready() -> void:
@@ -46,6 +49,7 @@ func _ready() -> void:
 	_build_name_plate(Vector3(0.0, 0.0, 0.17))
 	_build_solatro(Vector3(0.34, 0.0, 0.12))
 	_build_version(Vector3(-0.34, 0.0, 0.19))
+	_build_tutorial(Vector3(0.0, 0.0, -0.37))
 	GameFont.apply_to(self)
 
 
@@ -99,6 +103,9 @@ func press(action: String) -> void:
 func _process(delta: float) -> void:
 	if not visible:
 		return
+	_time += delta
+	var glow := 1.6 + 0.2 * sin(_time * 2.0)
+	_tutorial_glow.modulate = Color(1.0 * glow, 0.55 * glow, 0.1 * glow)
 	if _press_t > 0.0:
 		_press_t = maxf(_press_t - delta, 0.0)
 	_cap.position.y = _cap_rest - (0.012 if _press_t > 0.0 else 0.0)
@@ -260,6 +267,22 @@ func _build_solatro(at: Vector3) -> void:
 	_label(root, "SOLATRO", 52, 0.0009, Color(0.5, 1.8, 0.9), Vector3(0, 0.085, 0.03))
 	_label(root, "game idea by TechDweeb", 26, 0.0007, Color(1.0, 0.85, 0.5), Vector3(0, 0.055, 0.03))
 	_body(root, "solatro", Vector3(0.21, 0.1, 0.13), Vector3(0, 0.04, 0))
+
+
+## VR-TUTORIAL: a neon sign on a tall post in the middle of the table's back edge, between and above
+## the signs there - easy to find, but out of the way.
+func _build_tutorial(at: Vector3) -> void:
+	var root := _holder(at)
+	var metal := _mat(Color(0.2, 0.2, 0.22), 0.5, 0.5)
+	_box(root, Vector3(0.08, 0.008, 0.05), Vector3(0, 0.004, 0), metal) # foot
+	_box(root, Vector3(0.008, 0.23, 0.008), Vector3(0, 0.115, 0), metal) # post
+	_box(root, Vector3(0.3, 0.085, 0.016), Vector3(0, 0.27, 0), _mat(Color(0.05, 0.03, 0.06), 0.5, 0.0))
+	_box(root, Vector3(0.31, 0.095, 0.01), Vector3(0, 0.27, -0.004), _mat(Color(0.85, 0.65, 0.25), 0.3, 0.8)) # brass rim
+	_tutorial_glow = _label(root, "VR-TUTORIAL", 56, 0.0008, Color(2.0, 1.1, 0.2), Vector3(0, 0.273, 0.0085))
+	_tutorial_glow.outline_size = 10
+	_tutorial_glow.outline_modulate = Color(0.25, 0.1, 0.0)
+	_label(root, "LEARN THE VR MOVES", 26, 0.0006, Color(1.0, 0.9, 0.6), Vector3(0, 0.332, 0.0))
+	_body(root, "tutorial", Vector3(0.32, 0.11, 0.04), Vector3(0, 0.27, 0))
 
 
 # ---------------------------------------------------------------- helpers

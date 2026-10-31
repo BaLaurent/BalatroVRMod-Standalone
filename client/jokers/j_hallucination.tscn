@@ -1,0 +1,17 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_bgoab"]
+[ext_resource type="Material" path="res://jokers/models/j_hallucination_mat.res" id="2_w3nqr"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_hallucination.res" id="3_qvku4"]
+
+[node name="j_hallucination" type="Node3D" unique_id=614992660]
+script = ExtResource("1_bgoab")
+spin_node = NodePath("Model")
+spin_speed = 0.4
+
+[node name="Model" type="Node3D" parent="." unique_id=2047302160]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=1736082537]
+transform = Transform3D(0.15963167, 0.0015168316, -4.5342265e-05, -0.0015168316, 0.15934663, -0.009535353, -4.5342265e-05, 0.009535353, 0.15935384, -0.0003017728, 0.055501714, -0.0073437626)
+material_override = ExtResource("2_w3nqr")
+mesh = ExtResource("3_qvku4")

@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_6hrhi"]
+[ext_resource type="Material" path="res://jokers/models/j_troubadour_mat.res" id="2_mwbq1"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_troubadour.res" id="3_s5kln"]
+
+[node name="j_troubadour" type="Node3D" unique_id=162867368]
+script = ExtResource("1_6hrhi")
+
+[node name="Model" type="Node3D" parent="." unique_id=1560616183]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=1477918384]
+transform = Transform3D(0.12143731, 0.003179049, 8.889828e-05, -0.003179049, 0.1212475, 0.0067875534, 8.889828e-05, -0.0067875534, 0.121289134, -0.0010665547, 0.05813853, -0.0023726528)
+material_override = ExtResource("2_mwbq1")
+mesh = ExtResource("3_s5kln")

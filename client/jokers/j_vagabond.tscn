@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_6lqxl"]
+[ext_resource type="Material" path="res://jokers/models/j_vagabond_mat.res" id="2_3un3l"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_vagabond.res" id="3_lq35a"]
+
+[node name="j_vagabond" type="Node3D" unique_id=1266257575]
+script = ExtResource("1_6lqxl")
+glow_node = NodePath("Model")
+glow_source = "float(run[\"dollars\"] <= 4)"
+glow_energy = 0.3
+
+[node name="Model" type="Node3D" parent="." unique_id=1225685777]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=752344953]
+transform = Transform3D(0.12829304, -6.3975094e-05, 6.221828e-06, 6.3975094e-05, 0.1258889, -0.024720188, 6.221828e-06, 0.024720188, 0.12588891, -0.00018803251, 0.0552694, -0.00045663043)
+material_override = ExtResource("2_3un3l")
+mesh = ExtResource("3_lq35a")

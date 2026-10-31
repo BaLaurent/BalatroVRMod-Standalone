@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://jokers/augmented_joker.gd" id="1_xx7mm"]
+[ext_resource type="Material" path="res://jokers/models/j_sixth_sense_mat.res" id="2_7qi7u"]
+[ext_resource type="ArrayMesh" path="res://jokers/models/j_sixth_sense.res" id="3_5tfh6"]
+
+[node name="j_sixth_sense" type="Node3D" unique_id=1118675418]
+script = ExtResource("1_xx7mm")
+
+[node name="Model" type="Node3D" parent="." unique_id=1798227910]
+
+[node name="Mesh" type="MeshInstance3D" parent="Model" unique_id=1235644185]
+transform = Transform3D(0.12412653, -0.0005236585, -4.0514646e-05, 0.0005236585, 0.12264935, 0.019092752, -4.0514646e-05, -0.019092752, 0.12265046, -0.00047269184, 0.053492993, -0.00088728813)
+material_override = ExtResource("2_7qi7u")
+mesh = ExtResource("3_5tfh6")

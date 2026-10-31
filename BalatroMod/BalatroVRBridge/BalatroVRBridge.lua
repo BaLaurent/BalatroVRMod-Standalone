@@ -2,7 +2,7 @@
 --- MOD_NAME: Balatro in VR
 --- MOD_ID: BalatroVRBridge
 --- MOD_AUTHOR: [UnderTheVRadar]
---- VERSION: 1.0
+--- VERSION: 1.1
 --- MOD_DESCRIPTION: Play Balatro in VR: the whole game around you in a virtual casino, with your cards in your hand and 3D jokers on the table. Needs the "Balatro in VR" client - youtube.com/@UnderTheVRadar
 
 ----------------------------------------------
@@ -44,7 +44,8 @@ BalatroVR = VR -- global for debugging from the Lovely console
 local function log(msg) print("[BalatroVR] " .. msg) end
 
 -- Test helper for trying out jokers: F8 (keyboard) or "Test: +$10000" in the Options menu gives
--- money during a run; F9 or "Test: Extreme" gives more hand size and joker / consumable slots.
+-- money during a run; F9 or "Test: Extreme" gives more hand size and joker / consumable slots;
+-- "Test: Add Joker" puts any joker into the run with one click.
 -- Set to false before sharing the mod.
 local TEST_MONEY = false
 local TEST_MONEY_AMOUNT = 10000
@@ -1027,7 +1028,8 @@ local function hand_levels(in_run)
     if not (in_run and G.GAME and G.GAME.hands) then return out end
     for name, h in pairs(G.GAME.hands) do
         if type(h) == "table" and h.visible ~= false and num(h.level) > 1 then
-            out[#out + 1] = { name = name, level = num(h.level), played = num(h.played) }
+            out[#out + 1] = { name = name, level = num(h.level), played = num(h.played),
+                chips = num(h.chips), mult = num(h.mult) } -- (VR: written under the planet, like the Run Info)
         end
     end
     return out
@@ -1318,6 +1320,71 @@ local function blind_desc(blind)
     return (table.concat(out):gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
+-- The Run Info's blinds (Small, Big and the boss of this ante) for VR's own Run Info board: name,
+-- state, the score each needs, the reward, the boss rule and the tag for skipping it - worked out
+-- the way the game's blind select / Run Info does. Built again only when something about them
+-- changed (the tag's text needs a Tag object, which counts itself: those counters are put back).
+local RUN_BLIND_TYPES = { "Small", "Big", "Boss" }
+local function run_blinds(in_run)
+    local game = G.GAME
+    local rr = in_run and game and game.round_resets
+    if not (rr and rr.blind_choices and G.P_BLINDS and get_blind_amount) then return nil end
+    local ante = rr.blind_ante or rr.ante or 1
+    local cr = game.current_round or {}
+    local scaling = (game.starting_params and game.starting_params.ante_scaling) or 1
+    local sig = { tostring(ante), tostring(cr.most_played_poker_hand), tostring(scaling), tostring(game.skips) }
+    for _, t in ipairs(RUN_BLIND_TYPES) do
+        sig[#sig + 1] = tostring(rr.blind_choices[t]) .. ":" .. tostring(rr.blind_states and rr.blind_states[t])
+            .. ":" .. tostring(rr.blind_tags and rr.blind_tags[t])
+    end
+    sig = table.concat(sig, "|")
+    if VR.run_blinds_sig == sig then return VR.run_blinds end
+    local out = arr()
+    for _, t in ipairs(RUN_BLIND_TYPES) do
+        local key = rr.blind_choices[t]
+        local b = key and G.P_BLINDS[key]
+        if b then
+            local amt = get_blind_amount(ante) * (b.mult or 1) * scaling
+            local n = num(amt)
+            local broken = n ~= n or n == math.huge -- (endless mode far out: JSON has no inf)
+            local lines = localize({ type = "raw_descriptions", key = key, set = "Blind",
+                vars = { localize(cr.most_played_poker_hand or "High Card", "poker_hands") } })
+            local desc = {}
+            for _, l in ipairs(type(lines) == "table" and lines or {}) do desc[#desc + 1] = tostring(l) end
+            local no_reward = game.modifiers and game.modifiers.no_blind_reward and game.modifiers.no_blind_reward[t]
+            local ok_c, colour = pcall(get_blind_main_colour, key)
+            local e = {
+                type = t, key = key, state = tostring(rr.blind_states and rr.blind_states[t] or ""),
+                name = tostring(localize({ type = "name_text", key = key, set = "Blind" }) or b.name or t),
+                chips = broken and 0 or n,
+                chips_text = broken and "naneinf" or tostring(number_format and number_format(amt) or n),
+                dollars = no_reward and 0 or num(b.dollars),
+                desc = table.concat(desc, " "),
+                boss = b.boss and true or false,
+                colour = ok_c and col(colour) or nil,
+                sprite = sprite_ref(b.atlas or "blind_chips", { x = 0, y = b.pos and b.pos.y or 0 }),
+            }
+            local tag_key = t ~= "Boss" and rr.blind_tags and rr.blind_tags[t]
+            local tp = tag_key and G.P_TAGS and G.P_TAGS[tag_key]
+            if tp then
+                e.tag = { key = tag_key, name = tostring(localize({ type = "name_text", key = tag_key, set = "Tag" }) or tp.name or tag_key),
+                    sprite = sprite_ref(tp.atlas or "tags", tp.pos) }
+                local tally, id = game.tag_tally, G.tagid
+                local ok, text = pcall(function()
+                    local holder = {}
+                    Tag(tag_key, false, t):get_uibox_table(holder)
+                    return loc_lines(holder.ability_UIBox_table and holder.ability_UIBox_table.main or {})
+                end)
+                game.tag_tally, G.tagid = tally, id
+                if ok then e.tag.desc = text end
+            end
+            out[#out + 1] = e
+        end
+    end
+    VR.run_blinds_sig, VR.run_blinds = sig, out
+    return out
+end
+
 local function build_state()
     local game = G.GAME or {}
     local in_run = G.STAGE == G.STAGES.RUN
@@ -1363,8 +1430,13 @@ local function build_state()
             round = num(game.round),
             hands_left = num(cr.hands_left),
             discards_left = num(cr.discards_left),
+            hands_played = num(cr.hands_played), -- 0 = the first hand of the round (DNA is active: its joker shakes)
             chips = num(game.chips),
+            -- the score overflowed ("naneinf"): JSON has no inf / nan, so chips above is sent as 0
+            naneinf = (function() local c = num(game.chips); return c ~= c or c == math.huge or c == -math.huge end)(),
             dollars = num(game.dollars),
+            -- what can still be spent: below 0 too with Credit Card (bankrupt_at -20), like the game's own buy check
+            spendable = num((game.dollars or 0) - (game.bankrupt_at or 0)),
             run_chips = in_run and num(game.vr_run_chips) or 0, -- every round's score of this run added up
             -- the poker hand of the selected cards, as the run panel shows it ("Flush", " Lvl.3", chips x mult)
             hand = cr.current_hand and {
@@ -1396,6 +1468,8 @@ local function build_state()
         stake_sprite = stake and sprite_ref(stake.atlas or "chips", stake.pos),
         jokers = jokers,
         hand_levels = hand_levels(in_run),
+        -- the Run Info's blinds: VR shows them on a board of its own all through the run
+        run_blinds = (function() local ok, r = pcall(run_blinds, in_run); return ok and r or nil end)(),
         consumables = consumable_state(in_run),
         shop_open = G.STATE == G.STATES.SHOP,
         reroll_cost = num(cr.reroll_cost),
@@ -1405,6 +1479,7 @@ local function build_state()
         stats = (function() local ok, s = pcall(profile_stats); return ok and s or nil end)(),
         card_stats = (VR.usage_open and G.OVERLAY_MENU and VR.usage) or nil, -- the Card Stats chart (VR: columns around you)
         text_input = text_input_state(), -- a seed / profile name box on screen: VR shows its keyboard
+        test_mode = TEST_MONEY or nil, -- VR: after a photo a keyboard asks for a comment (feedback photos)
     }
 end
 
@@ -1446,6 +1521,8 @@ local HANDLERS = {
         if type(m.spec) == "string" then VR.spectator = m.spec end
         if m.amb ~= nil then VR.ambience = (m.amb == true or m.amb == "true") end
         if m.jimbo ~= nil then VR.jimbo = (m.jimbo == true or m.jimbo == "true") end
+        if m.j3d ~= nil then VR.jokers_3d = (m.j3d == true or m.j3d == "true") end
+        VR.jokers_3d_mode = type(m.j3d_mode) == "string" and m.j3d_mode or (VR.jokers_3d and "On" or "Off")
         if m.floor ~= nil then VR.floor.cm = num(m.floor) end
         if type(m.wheel) == "string" then VR.wheel_mode = m.wheel end
         return true
@@ -1677,9 +1754,11 @@ end
 local function track_run_chips()
     local game = G.GAME
     if not (game and G.STAGE == G.STAGES.RUN) then return end
-    local chips = num(game.chips)
+    -- capped below inf (Talisman scores can reach it): inf would be sent as 0 and breaks the save file
+    local chips = math.min(num(game.chips), 1e308)
+    if chips ~= chips then return end -- naneinf: keep the sum as it is
     local last = game.vr_last_chips or 0
-    if chips > last then game.vr_run_chips = (game.vr_run_chips or 0) + (chips - last) end
+    if chips > last then game.vr_run_chips = math.min((game.vr_run_chips or 0) + (chips - last), 1e308) end
     game.vr_last_chips = chips -- a new round starts at 0 again
 end
 
@@ -1742,6 +1821,8 @@ end
 VR.calm_lights = false
 VR.hands = true -- "VR: Hands": Jimbo's gloves in VR
 VR.jimbo = true -- "VR: Jimbo": Jimbo at the casino table
+VR.jokers_3d = true -- "VR: 3D Jokers": the joker figures on the board (off: only their cards)
+VR.jokers_3d_mode = "On" -- On / Custom Only (only the player's own figures) / Off, set by the VR client
 VR.ambience = true -- "VR: Casino Sounds": slot machines, glasses, chips in the VR casino
 VR.wheel_mode = "Real" -- "VR: Wheel of Fortune": Off / Deterministic / Real (see Card:use_consumeable)
 VR.spectator = "Off" -- "VR: Spectator": the spectator camera window on the PC (Off / Eyes / Shoulder / Room)
@@ -1757,6 +1838,7 @@ local function vr_settings_box()
         b("VR: Calm Lights: " .. (VR.calm_lights and "On" or "Off"), "vr_toggle_calm"),
         b("VR: Hands: " .. (VR.hands and "On" or "Off"), "vr_toggle_hands"),
         b("VR: Jimbo: " .. (VR.jimbo and "On" or "Off"), "vr_toggle_jimbo"),
+        b("VR: 3D Jokers: " .. tostring(VR.jokers_3d_mode), "vr_toggle_jokers_3d"),
         b("VR: Casino Sounds: " .. (VR.ambience and "On" or "Off"), "vr_toggle_ambience"),
         b("VR: Spectator: " .. tostring(VR.spectator), "vr_cycle_spectator"),
         b("VR: Wheel of Fortune: " .. tostring(VR.wheel_mode), "vr_cycle_wheel"),
@@ -1797,6 +1879,10 @@ G.FUNCS.vr_toggle_ambience = function(e)
 end
 G.FUNCS.vr_toggle_jimbo = function(e)
     VR.send_event("toggle_jimbo", {})
+    refresh_vr_settings()
+end
+G.FUNCS.vr_toggle_jokers_3d = function(e)
+    VR.send_event("toggle_jokers_3d", {})
     refresh_vr_settings()
 end
 G.FUNCS.vr_toggle_hands = function(e)
@@ -1840,6 +1926,87 @@ G.FUNCS.vr_test_extreme = function(e)
     give_test_extreme()
 end
 
+-- Test jokers (also only with TEST_MONEY): "Test: Add Joker" in Options lists every joker in the
+-- game (collection order, all of them, locked or not); one click puts it into the run's jokers
+local TEST_JOKERS_PER_PAGE = 15 -- (3 columns of 5)
+VR.test_joker_page = 1
+local function test_joker_name(key)
+    local ok, name = pcall(localize, { type = "name_text", set = "Joker", key = key })
+    return (ok and type(name) == "string" and name ~= "ERROR") and name or key
+end
+local function test_joker_keys() -- (alphabetical by the shown name, so you find them)
+    local keys, names = {}, {}
+    for _, center in ipairs(G.P_CENTER_POOLS and G.P_CENTER_POOLS.Joker or {}) do
+        keys[#keys + 1] = center.key
+        names[center.key] = test_joker_name(center.key):lower()
+    end
+    table.sort(keys, function(a, b) return names[a] < names[b] end)
+    return keys
+end
+
+local function add_test_joker(key)
+    if not TEST_MONEY or G.STAGE ~= G.STAGES.RUN or not G.GAME or not G.jokers or not G.P_CENTERS[key] then return end
+    local card = create_card("Joker", G.jokers, nil, nil, nil, nil, key, "vrtest")
+    card:add_to_deck()
+    G.jokers:emplace(card) -- (also past the joker slots: it is a test)
+    card:start_materialize()
+    log("test joker: " .. key)
+end
+
+local function test_jokers_box()
+    local keys = test_joker_keys()
+    local pages = math.max(1, math.ceil(#keys / TEST_JOKERS_PER_PAGE))
+    VR.test_joker_page = math.min(math.max(VR.test_joker_page, 1), pages)
+    local first = (VR.test_joker_page - 1) * TEST_JOKERS_PER_PAGE
+    local rows = {}
+    for r = 0, 4 do
+        local cols = {}
+        for c = 0, 2 do
+            local key = keys[first + r * 3 + c + 1]
+            if key then
+                local center = G.P_CENTERS[key]
+                cols[#cols + 1] = UIBox_button({ label = { test_joker_name(key) }, button = "vr_test_add_joker",
+                    col = true, ref_table = { key = key }, id = "vrtj_" .. key, minw = 3.2, minh = 0.6, scale = 0.4,
+                    colour = (G.C.RARITY and G.C.RARITY[center.rarity]) or G.C.RED })
+            end
+        end
+        if #cols > 0 then rows[#rows + 1] = { n = G.UIT.R, config = { align = "cm", padding = 0.05 }, nodes = cols } end
+    end
+    rows[#rows + 1] = { n = G.UIT.R, config = { align = "cm", padding = 0.1 }, nodes = {
+        UIBox_button({ col = true, label = { "< Page" }, button = "vr_test_joker_prev", minw = 2.2, minh = 0.6, scale = 0.4, colour = G.C.ORANGE or G.C.RED }),
+        { n = G.UIT.C, config = { align = "cm", minw = 2.4 }, nodes = {
+            { n = G.UIT.T, config = { text = ("Page %d / %d"):format(VR.test_joker_page, pages), scale = 0.4, colour = G.C.WHITE } } } },
+        UIBox_button({ col = true, label = { "Page >" }, button = "vr_test_joker_next", minw = 2.2, minh = 0.6, scale = 0.4, colour = G.C.ORANGE or G.C.RED }),
+    } }
+    return create_UIBox_generic_options({ back_func = "options", contents = {
+        { n = G.UIT.R, config = { align = "cm", padding = 0.05 }, nodes = {
+            { n = G.UIT.T, config = { text = "Test: Add Joker (click one)", scale = 0.5, colour = G.C.WHITE } } } },
+        { n = G.UIT.R, config = { align = "cm" }, nodes = { { n = G.UIT.C, config = { align = "cm" }, nodes = rows } } },
+    } })
+end
+
+G.FUNCS.vr_test_jokers = function(e)
+    if not TEST_MONEY or G.STAGE ~= G.STAGES.RUN then return end
+    G.SETTINGS.paused = true
+    G.FUNCS.overlay_menu({ definition = test_jokers_box() })
+end
+G.FUNCS.vr_test_joker_prev = function(e)
+    local pages = math.max(1, math.ceil(#test_joker_keys() / TEST_JOKERS_PER_PAGE))
+    VR.test_joker_page = VR.test_joker_page <= 1 and pages or VR.test_joker_page - 1 -- (round the corner)
+    G.FUNCS.vr_test_jokers(e)
+end
+G.FUNCS.vr_test_joker_next = function(e)
+    local pages = math.max(1, math.ceil(#test_joker_keys() / TEST_JOKERS_PER_PAGE))
+    VR.test_joker_page = VR.test_joker_page >= pages and 1 or VR.test_joker_page + 1
+    G.FUNCS.vr_test_jokers(e)
+end
+G.FUNCS.vr_test_add_joker = function(e)
+    local key = e and e.config and ((e.config.ref_table and e.config.ref_table.key) or (e.config.id and tostring(e.config.id):match("^vrtj_(.+)$")))
+    if not key then return end
+    G.FUNCS.exit_overlay_menu()
+    add_test_joker(key)
+end
+
 local keypressed_ref = love.keypressed
 function love.keypressed(key, ...)
     if key == "f8" then give_test_money() end
@@ -1865,6 +2032,7 @@ function create_UIBox_options()
                         list[#list + 1] = UIBox_button({ label = { "Test: +$" .. TEST_MONEY_AMOUNT }, button = "vr_test_money", minw = 5, colour = G.C.MONEY or G.C.GOLD })
                         list[#list + 1] = UIBox_button({ label = { ("Test: Extreme (+%d Hand, +%d Jokers)"):format(TEST_EXTREME.hand, TEST_EXTREME.jokers) },
                             button = "vr_test_extreme", minw = 5, colour = G.C.PURPLE or G.C.RED })
+                        list[#list + 1] = UIBox_button({ label = { "Test: Add Joker" }, button = "vr_test_jokers", minw = 5, colour = G.C.RED })
                     end
                 end
             end
@@ -2459,6 +2627,37 @@ HANDLERS.wheel_done = { gated = false, fn = function(m)
     return true
 end }
 
+-- The Wheel of Fortune hit: Jimbo in VR says which joker got which edition. The card's effect polls
+-- the edition (poll_edition 'wheel_of_fortune') and puts it on the chosen joker right after
+-- (set_edition); "Nope!" polls nothing, so nothing is said.
+VR.wheel_edition = nil -- the edition key just polled for the Wheel of Fortune, e.g. "e_foil"
+local poll_edition_ref = poll_edition
+function poll_edition(_key, ...)
+    local edition = poll_edition_ref(_key, ...)
+    if _key == "wheel_of_fortune" then
+        VR.wheel_edition = type(edition) == "string" and edition or
+            (type(edition) == "table" and next(edition) and "e_" .. next(edition)) or nil
+    end
+    return edition
+end
+
+local card_set_edition_ref = Card.set_edition
+function Card:set_edition(edition, ...)
+    local key = VR.wheel_edition
+    VR.wheel_edition = nil
+    local ret = card_set_edition_ref(self, edition, ...)
+    if key and self.ability and self.ability.set == "Joker" then
+        local function loc(set, k)
+            local ok, s = pcall(localize, { type = "name_text", set = set, key = k })
+            return ok and type(s) == "string" and s ~= "ERROR" and s or nil
+        end
+        local ckey = self.config and self.config.center and self.config.center.key or ""
+        pcall(VR.send_event, "wheel_edition", { uid = oid(self), joker = loc("Joker", ckey) or self.ability.name or "",
+            edition = (key:gsub("^e_", "")), edition_name = loc("Edition", key) or "" })
+    end
+    return ret
+end
+
 -- Reroll lever on the VR joker board
 HANDLERS.reroll = { gated = true, fn = function()
     if not can_reroll_now() then return false end
@@ -2575,11 +2774,19 @@ local AMBIENT_SOUNDS = { "coin1", "coin2", "coin3", "coin4", "coin5", "coin6", "
                          -- (Solatro, which runs in VR alone: its cards' sounds)
                          "cardSlide1", "card1", "multhit1", "whoosh1",
                          -- (the casino's card tables: shuffling and dealing; a crumpled slot ticket)
-                         "cardFan2", "cardSlide2", "card3", "crumple1", "crumple2", "crumple3" }
+                         "cardFan2", "cardSlide2", "card3", "crumple1", "crumple2", "crumple3",
+                         -- (the naneinf moment: the score tower bursts, the room falls apart)
+                         "glass1", "glass4", "explosion_release1", "negative", "whoosh_long", "magic_crumple",
+                         -- (the VR tutorial: a move done right / the wrong way)
+                         "tarot1", "cancel" }
 function VR.send_ambient_sounds()
     if NET.state ~= "connected" then return end
+    VR.missing_sounds = VR.missing_sounds or {}
     for _, code in ipairs(AMBIENT_SOUNDS) do
-        if not VR.sent_sounds[code] then send_sound_file(code); return end
+        if not VR.sent_sounds[code] and not VR.missing_sounds[code] then
+            if not send_sound_file(code) then VR.missing_sounds[code] = true end -- (no such file: not asked again every frame)
+            return
+        end
     end
 end
 
