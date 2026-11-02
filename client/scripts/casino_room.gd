@@ -90,7 +90,6 @@ var _felt: StandardMaterial3D
 var _vip: Label3D
 var _summit_flag := false
 var _vradar_sign: Label3D
-var _live: Label3D
 var _star_sky: MultiMeshInstance3D
 var _endless: Label3D
 var _leather: StandardMaterial3D
@@ -144,6 +143,53 @@ func _ready() -> void:
 	for z in [-4.1, -3.1, -2.1, 1.0, 2.0]:
 		for x in [-ROOM_HALF.x + 0.45, ROOM_HALF.x - 0.45]:
 			ambience.machines.append(Vector3(x, 0, ROOM_CENTER_Z + z + 1.0))
+	_use_vertex_lighting()
+
+
+const VERTEX_LIGHT_STEP := 0.25 # metres between vertices on big room surfaces (see _box)
+const FELT_STEP := 0.05          # metres between vertices on the felt (see _slab)
+var _table_mats: Array[BaseMaterial3D] = [] # per pixel, or per vertex in performance mode
+
+## The room's lights (6 neon omnis, the spots, the table lamp) shaded per pixel cost the headset's
+## GPU about 9 ms a frame: shaded per vertex instead, everything around you keeps the same lights at
+## a fraction of that. The card table follows performance mode (set_performance: per pixel when its
+## lamp casts shadows), and the walls with a doorway stay per pixel (CSG shapes, too coarse for vertex
+## light). Materials are switched in place, so the mood, neon and boss tints that change them keep working.
+func _use_vertex_lighting() -> void:
+	var keep_pixel := {}
+	for g in find_children("*", "GeometryInstance3D", true, false):
+		if _table.is_ancestor_of(g) or g is CSGShape3D:
+			for m in _materials_of(g):
+				keep_pixel[m] = true
+				if _table.is_ancestor_of(g) and m is BaseMaterial3D and not _table_mats.has(m) \
+						and (m as BaseMaterial3D).shading_mode == BaseMaterial3D.SHADING_MODE_PER_PIXEL:
+					_table_mats.append(m)
+	var vertex_twins := {} # material that stays per pixel elsewhere -> its per-vertex twin
+	for g in find_children("*", "MeshInstance3D", true, false):
+		if _table.is_ancestor_of(g):
+			continue
+		var mi := g as MeshInstance3D
+		var m = mi.material_override
+		if not (m is BaseMaterial3D) or (m as BaseMaterial3D).shading_mode != BaseMaterial3D.SHADING_MODE_PER_PIXEL:
+			continue
+		if keep_pixel.has(m):
+			if not vertex_twins.has(m):
+				var twin := (m as BaseMaterial3D).duplicate() as BaseMaterial3D
+				twin.shading_mode = BaseMaterial3D.SHADING_MODE_PER_VERTEX
+				vertex_twins[m] = twin
+			mi.material_override = vertex_twins[m]
+		else:
+			(m as BaseMaterial3D).shading_mode = BaseMaterial3D.SHADING_MODE_PER_VERTEX
+
+
+static func _materials_of(g: GeometryInstance3D) -> Array:
+	var mats := [g.material_override]
+	if g is CSGShape3D:
+		mats.append(g.get("material"))
+	elif g is MeshInstance3D:
+		for i in (g as MeshInstance3D).get_surface_override_material_count():
+			mats.append((g as MeshInstance3D).get_active_material(i))
+	return mats.filter(func(m): return m != null)
 
 
 ## The neon follows the game: each ante tints it a step further around the colour wheel, a boss
@@ -177,8 +223,9 @@ func set_calm(on: bool) -> void:
 		_boss_room.apply(_boss_room._key, on) # (bubbles, waves, racing machines off or on)
 
 
-## Performance mode (slower PCs): the ceiling spots over the machines and the side room lights go
-## out (the neon and the table lamp stay), and the table lamp casts no shadows.
+## Performance mode (the headset's GPU): the ceiling spots over the machines and the side room lights go
+## out (the neon and the table lamp stay), the table lamp casts no shadows, and with no shadows to
+## draw the card table is lit per vertex like the rest of the room (its felt is fine-meshed for it).
 func set_performance(on: bool) -> void:
 	for s in _room_spots:
 		s.visible = not on
@@ -186,6 +233,8 @@ func set_performance(on: bool) -> void:
 		(d["light"] as Light3D).visible = not on
 	if _table_spot != null:
 		_table_spot.shadow_enabled = not on
+	for m in _table_mats:
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_PER_VERTEX if on else BaseMaterial3D.SHADING_MODE_PER_PIXEL
 
 
 ## The run is won: every slot machine hits the jackpot, bells and coins all around.
@@ -349,8 +398,18 @@ func set_floor(y: float) -> void:
 	position.y = y
 
 
+const LAYOUT_AT := Vector3(0.0, 0.0, -1.0) # where the room was built to have the play layout (main.gd's start: 1 m ahead of you)
+
+## The card table under the joker board (`layout`: the play layout's frame, `table_y`: the felt's
+## height). The whole room comes along, so the table stays where the room was built around it (the
+## middle) wherever you sit in your play area: the tracking origin the room would otherwise stand on
+## is somewhere else entirely (e.g. the Quest's boundary centre).
 func place_table(layout: Transform3D, table_y: float) -> void:
 	var yaw := Basis(Vector3.UP, layout.basis.get_euler().y)
+	var room := Transform3D(yaw, layout.origin - yaw * LAYOUT_AT)
+	room.origin.y = position.y # (the floor height: set_floor)
+	if not transform.is_equal_approx(room): # (only when the layout moved: the room has ~1700 nodes)
+		transform = room
 	var origin := layout.origin + yaw * TABLE_CENTER
 	origin.y = table_y
 	_table.global_transform = Transform3D(yaw, origin)
@@ -379,14 +438,10 @@ func place_table(layout: Transform3D, table_y: float) -> void:
 
 
 ## Every chip scored in this run: the chip mountain on the left of the table.
-## Achievement rewards "Streamer" and "Endless": neon signs on the right wall.
-func set_reward_signs(live: bool, endless: bool) -> void:
-	if live and _live == null:
-		_live = _neon("LIVE", Vector3(ROOM_HALF.x - 0.05, 2.72, ROOM_CENTER_Z - 1.85), -90.0, Color(3.6, 0.35, 0.35), 0.004) # between the wheel and the Spectral Lounge
-	if _live != null:
-		_live.visible = live
+## Achievement reward "Endless": a neon sign on the right wall.
+func set_reward_signs(endless: bool) -> void:
 	if endless and _endless == null:
-		_endless = _neon("ENDLESS", Vector3(ROOM_HALF.x - 0.05, 2.36, ROOM_CENTER_Z - 1.85), -90.0, Color(0.6, 1.2, 3.6), 0.003) # under LIVE
+		_endless = _neon("ENDLESS", Vector3(ROOM_HALF.x - 0.05, 2.72, ROOM_CENTER_Z - 1.85), -90.0, Color(0.6, 1.2, 3.6), 0.003) # between the wheel and the Spectral Lounge
 	if _endless != null:
 		_endless.visible = endless
 
@@ -1355,21 +1410,37 @@ func _chair(parent: Node3D, pos: Vector3, yaw: float) -> void:
 func _box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
 	var mesh := BoxMesh.new()
 	mesh.size = size
+	# a vertex at least every VERTEX_LIGHT_STEP: the room is lit per vertex (_use_vertex_lighting),
+	# so big walls and the floor need enough of them for smooth light pools
+	mesh.subdivide_width = int(size.x / VERTEX_LIGHT_STEP)
+	mesh.subdivide_height = int(size.y / VERTEX_LIGHT_STEP)
+	mesh.subdivide_depth = int(size.z / VERTEX_LIGHT_STEP)
 	return _add(parent, mesh, pos, mat)
 
 
 ## The table's outline (x, z), going round once: a rectangle with rounded corners, `inset` inside its
-## edge (negative: outside it). The same number of points for every inset, so outlines can be joined.
+## edge (negative: outside it). The same number of points for every inset, so outlines can be joined;
+## the straight sides get a point every ~FELT_STEP too (for per-vertex light along the rail).
 func _table_outline(inset: float, seg := 14) -> PackedVector2Array:
 	var hw := TABLE_SIZE.x * 0.5 - inset
 	var hd := TABLE_SIZE.y * 0.5 - inset
 	var r := maxf(TABLE_CORNER - inset, 0.01)
-	var pts := PackedVector2Array()
+	var arcs: Array[PackedVector2Array] = []
 	for corner in [[1.0, 1.0, 0.0], [-1.0, 1.0, 90.0], [-1.0, -1.0, 180.0], [1.0, -1.0, 270.0]]:
 		var c := Vector2(corner[0] * (hw - r), corner[1] * (hd - r))
+		var arc := PackedVector2Array()
 		for i in seg + 1:
 			var a := deg_to_rad(corner[2] + 90.0 * i / seg)
-			pts.append(c + Vector2(cos(a), sin(a)) * r)
+			arc.append(c + Vector2(cos(a), sin(a)) * r)
+		arcs.append(arc)
+	var pts := PackedVector2Array()
+	for k in 4: # after corner k: the straight side to corner k + 1 (along x after 0 and 2, z after 1 and 3)
+		pts.append_array(arcs[k])
+		var from: Vector2 = arcs[k][seg]
+		var to: Vector2 = arcs[(k + 1) % 4][0]
+		var n := int(((TABLE_SIZE.x if k % 2 == 0 else TABLE_SIZE.y) - 2.0 * TABLE_CORNER) / FELT_STEP)
+		for i in range(1, n):
+			pts.append(from.lerp(to, float(i) / n))
 	return pts
 
 
@@ -1384,14 +1455,25 @@ func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, n: Vector3) -> vo
 		st.add_vertex(v)
 
 
-## A flat piece in the outline's shape: its top at y1, its sides down to y0.
+## A flat piece in the outline's shape: its top at y1, its sides down to y0. The top is a FELT_STEP
+## grid cut to the outline, so per-vertex light (performance mode) still shows the lamp's light pool.
 func _slab(parent: Node3D, outline: PackedVector2Array, y0: float, y1: float, mat: Material) -> MeshInstance3D:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var idx := Geometry2D.triangulate_polygon(outline)
-	for k in range(0, idx.size(), 3):
-		var p := [outline[idx[k]], outline[idx[k + 1]], outline[idx[k + 2]]]
-		_tri(st, Vector3(p[0].x, y1, p[0].y), Vector3(p[1].x, y1, p[1].y), Vector3(p[2].x, y1, p[2].y), Vector3.UP)
+	var bounds := Rect2(outline[0], Vector2.ZERO)
+	for p in outline:
+		bounds = bounds.expand(p)
+	var cols := ceili(bounds.size.x / FELT_STEP)
+	var rows := ceili(bounds.size.y / FELT_STEP)
+	for cx in cols:
+		for cz in rows:
+			var o := bounds.position + Vector2(cx, cz) * FELT_STEP
+			var cell := PackedVector2Array([o, o + Vector2(FELT_STEP, 0), o + Vector2(FELT_STEP, FELT_STEP), o + Vector2(0, FELT_STEP)])
+			for poly in Geometry2D.intersect_polygons(cell, outline):
+				var idx := Geometry2D.triangulate_polygon(poly)
+				for k in range(0, idx.size(), 3):
+					var p := [poly[idx[k]], poly[idx[k + 1]], poly[idx[k + 2]]]
+					_tri(st, Vector3(p[0].x, y1, p[0].y), Vector3(p[1].x, y1, p[1].y), Vector3(p[2].x, y1, p[2].y), Vector3.UP)
 	_outline_side(st, outline, y0, y1, 1.0)
 	return _mesh_of(parent, st, mat)
 

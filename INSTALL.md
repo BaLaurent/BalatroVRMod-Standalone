@@ -1,63 +1,70 @@
-# Balatro in VR – Installation Guide
+# Balatro in VR – Installation Guide (Meta Quest, standalone)
 
-You need: **Balatro** (Steam, Windows) and a **VR headset** (e.g. Meta Quest with Virtual Desktop or Quest Link, or SteamVR).
+You need: a **Meta Quest 3 / 3S** in developer mode, a Linux (or other) computer to build and install the two apps once, and your own copy of **Balatro** from Steam (`Balatro.exe`, version 1.0.1o).
 
-The guide has three parts: first the mod basics, then the mod, then the VR program. The order matters.
+Everything runs on the headset, no PC while playing. Two apps are installed:
 
----
+- **Balatro VR Host** – Balatro itself, built from your own `Balatro.exe` and patched with the VR mod. It runs in the background.
+- **Balatro in VR** – the VR client that shows the game around you.
 
-## Step 1: Install Lovely (once)
+## Step 1: Prepare the headset (once)
 
-Lovely is the tool that lets Balatro load mods.
+1. Enable **developer mode** for your Quest: in the Meta Horizon phone app → Devices → your headset → Developer Mode (needs a free Meta developer account/organisation).
+2. Connect the Quest to the computer with a USB-C cable, put it on and accept **Allow USB debugging** (tick "Always allow").
+3. On the computer, `adb devices` must list the headset as `device` (not `unauthorized`).
 
-1. Download the file **`lovely-x86_64-pc-windows-msvc.zip`**: https://github.com/ethangreen-dev/lovely-injector/releases
-2. Unpack it. Inside is a file called **`winmm.dll`**.
-3. Copy this `winmm.dll` into the Balatro game folder.
+## Step 2: Install the tools on the computer (once)
 
-To find the game folder: Steam → right-click Balatro → **Manage** → **Browse local files**.
-It is usually: `C:\Program Files (x86)\Steam\steamapps\common\Balatro\`
+| Tool | Version | Notes |
+|---|---|---|
+| [Godot](https://godotengine.org/download/archive/4.7.2-stable/) | **4.7.2** exactly | the `godot` command must be on your PATH |
+| JDK | **17** | e.g. `/usr/lib/jvm/java-17-openjdk` (newer JDKs break the Android builds) |
+| Android SDK | platform-tools, `platforms;android-34` and `android-36`, a recent `build-tools`, **`ndk;25.2.9519653`** | install with `sdkmanager`, e.g. `sdkmanager "platform-tools" "platforms;android-34" "platforms;android-36" "build-tools;35.0.0" "ndk;25.2.9519653"`; if a build asks for another component, install that one too |
+| `git`, `python3`, `curl`, `unzip`, `keytool`, `apksigner`, `adb` | any | `keytool` comes with the JDK, `apksigner` with the build-tools |
 
----
+Tell Godot where the SDK and JDK are. Close Godot, then in `~/.config/godot/editor_settings-4.7.tres` (Linux; on Windows `%APPDATA%\Godot\editor_settings-4.7.tres`) set:
 
-## Step 2: Install Steamodded (once)
+```
+export/android/android_sdk_path = "/path/to/android-sdk"
+export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk"
+```
 
-Steamodded is the mod library that Balatro in VR is built on.
+(or set the same two fields in the Godot editor: Editor → Editor Settings → Export → Android). If the SDK is not at `/opt/android-sdk`, also `export ANDROID_HOME=/path/to/android-sdk` before building the host.
 
-1. Download the zip: https://github.com/Steamodded/smods/releases/tag/26.1002.0 → **Source code (zip)**. The file is called **`smods-26.1002.0.zip`**.
-2. Unpack it into Balatro's mods folder. Type `%AppData%\Balatro` into the Explorer address bar and create a folder called **`Mods`** there if it does not exist yet.
-   In the end it looks like this: `%AppData%\Balatro\Mods\smods-26.1002.0\`
+## Step 3: Build both apps
 
-**Check:** Start Balatro once. The main menu now shows a **Mods** button. If it is there, everything works. You can close Balatro again.
+From the repository root:
 
----
+```
+quest/fetch_deps.sh
+quest/build_client.sh
+python3 quest/host/build_host.py --balatro "<path>/Balatro.exe"
+```
 
-## Step 3: Install the mod "Balatro in VR"
+- `fetch_deps.sh` downloads the Godot 4.7.2 Android export templates (~1.2 GB, only the Android parts are kept), the OpenXR vendors plugin into `client/addons/`, and creates a signing keystore at `~/.local/share/godot/keystores/debug.keystore` (or `$BALATRO_VR_KEYSTORE`). It skips what is already there.
+- `build_client.sh` exports the VR client → `Release/BalatroInVR-Quest.apk`.
+- `build_host.py` reads your Steam `Balatro.exe` (Steam → right-click Balatro → Manage → Browse local files; on Linux e.g. `~/.local/share/Steam/steamapps/common/Balatro/Balatro.exe`), patches it for Android, adds the VR mod, downloads and compiles LÖVE 11.5 for Android (first run: ~10 min, later runs under a minute) → `Release/BalatroVRHost.apk`. It stops with an "anchor not found" message if your Balatro version differs from 1.0.1o.
 
-1. Copy the folder **`Mod\BalatroVRBridge`** from this package into `%AppData%\Balatro\Mods\`.
-2. In the end the file must be here: `%AppData%\Balatro\Mods\BalatroVRBridge\BalatroVRBridge.lua`
+Both APKs are signed with the same keystore. **`BalatroVRHost.apk` contains your copy of Balatro: keep it for yourself, never share it or upload it.**
 
----
+## Step 4: Install on the headset
 
-## Step 4: Start the VR program
+```
+adb install -r Release/BalatroInVR-Quest.apk
+adb install -r Release/BalatroVRHost.apk
+```
 
-1. Copy the folder **`Balatro in VR`** to a place of your choice, e.g. `C:\Games\Balatro in VR\`.
-   `Balatro in VR.exe` and `Balatro in VR.pck` must stay together.
-2. Start your VR software (Virtual Desktop, Quest Link or SteamVR) and put on the headset.
-3. Start **`Balatro in VR.exe`**.
-4. Start **Balatro** through Steam. After a few seconds the game appears around you.
+(or add `--install` to the two build commands). To update later, pull the repo, rebuild and install again: your settings, layout and Balatro profile are kept.
 
-The order does not matter: both programs find each other by themselves. You can restart either one at any time.
+## Step 5: Play
 
----
+1. Put on the headset and turn on both controllers (the VR app refuses to start without them).
+2. In the app library choose **Unknown sources** and open **Balatro VR Host**.
+3. Balatro starts in the background and brings up **Balatro in VR** by itself. After a few seconds the game appears around you, with the card table in the middle of the casino.
+4. Sitting somewhere else? Press **Recenter** in the VR menu (≡): the table and the room come to you.
+5. Tap the Host icon again at any time to come back to the VR app. When you close the VR app, Balatro quits by itself after 30 seconds.
 
-## Updating to a new version
-
-Close Balatro and the VR program, then replace both parts with the ones from the new package:
-
-1. `Mod\BalatroVRBridge\BalatroVRBridge.lua` → over the old one in `%AppData%\Balatro\Mods\BalatroVRBridge\`
-2. the folder **`Balatro in VR`** → over your old one (exe and pck together)
-
-Your layout, settings and achievements are kept: they are saved separately in `%AppData%\Godot\app_userdata\Balatro in VR\`.
+Balatro starts with a fresh profile on the headset (your PC save is not copied).
 
 ---
 
@@ -74,10 +81,9 @@ Your layout, settings and achievements are kept: they are saved separately in `%
 
 | Problem | Solution |
 |---|---|
-| The VR program says "Waiting for Balatro …" | Is **Balatro in VR** switched on under **Mods** in Balatro? Is the file in the right place (Step 3)? |
-| The VR program opens on your monitor instead of the headset | Your VR software was not running yet. Start it first, then the program. |
-| Windows Firewall asks for permission | The programs only talk to each other on this PC (port 27801). You can deny network access. |
+| The VR app says "Waiting for Balatro …" | Open **Balatro VR Host** from the app library. |
+| Nothing opens and the headset shows a "controllers required" dialog | Turn on the Touch controllers. |
 | Everything is in strange places | In the VR menu (≡) open **Adjust VR Layout**, then press **Y** (left-handed: **B**). Everything returns to the default positions. |
-| Mod error messages | In the newest file in `%AppData%\Balatro\Mods\lovely\log\`, look for the lines with `[BalatroVR]`. |
+| Anything else | `adb logcat -s godot SDL/APP BalatroVRHost`: the mod's lines start with `[BalatroVR]`. |
 
-The program saves your settings and positions in `%AppData%\Godot\app_userdata\Balatro in VR\`.
+Your own joker figures go in `Android/data/io.github.balaurent.balatroinvr/files/Documents/custom_jokers` on the headset. Photos are saved in the headset's `Pictures/Balatro in VR` folder.

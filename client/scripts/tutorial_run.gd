@@ -43,7 +43,7 @@ const AUDIO_ID := -704
 const MENU_ID := -705                    # BACK TO MENU on the last page
 const UNLOCK_ID := -706                  # UNLOCK on the achievement page
 const OK_ID := -707                      # GOT IT on a page that only tells something
-const BACKDROP_NAMES := ["GREEN", "DARK", "CASINO"] # main.gd's Backdrop (Background in the VR menu)
+const BACKDROP_NAMES := ["DARK", "CASINO"] # main.gd's Backdrop (Background in the VR menu)
 const JIMBO_AT := Vector3(0.6, 0.0, -0.45) # Jimbo stands right of the board (main.gd places him there)
 const SHOP_ID := 950                     # the joker on the sales counter ...
 const REROLL_ID := 951                   # ... and the one a reroll puts there instead
@@ -151,8 +151,8 @@ const STEPS := [
 		"text": "Everything at the table can be put where you like it. Press {menu} on your {cards} controller to open the VR menu and choose ADJUST VR LAYOUT: every item gets a yellow ball. Grab the score tower's ball with the grip, move it, and while you hold it push the stick up or down to change its size.\n\n(Just practice: your own layout is put back afterwards.)\n\nYOUR TURN: grab the score tower's yellow ball, move it and resize it.",
 		"jimbo": "Make yourself at home!"},
 	{"id": "22_backgrounds", "phase": "backgrounds", "want": ["backgrounds", ""],
-		"title": "Three backgrounds",
-		"text": "You can play in three surroundings: GREEN (for Virtual Desktop's passthrough: you see your real room), DARK (calm, easy on the eyes) and the CASINO. Press {menu} on your {cards} controller and press BACKGROUND to switch.\n\nYOUR TURN: switch through all three backgrounds (then keep the one you like).",
+		"title": "Two backgrounds",
+		"text": "You can play in two surroundings: DARK (calm, easy on the eyes) and the CASINO. Press {menu} on your {cards} controller and press BACKGROUND to switch.\n\nYOUR TURN: switch through both backgrounds (then keep the one you like).",
 		"jimbo": "Try them all!"},
 	{"id": "23_options", "phase": "info", "want": ["ok", ""],
 		"title": "Good to know: the options",
@@ -201,7 +201,7 @@ var _adjust := {}                        # the ADJUST page: "start", "scale", an
 var _unlocked := false                   # the ACHIEVEMENT page: UNLOCK was pressed
 var _fakes := {}                         # "kind:id" -> Label3D: what a card is, while its picture is missing
 var _fake_t := 0.0
-var backdrop_probe: Callable             # () -> int: the background now (main.gd's Backdrop: 0 green, 1 dark, 2 casino)
+var backdrop_probe: Callable             # () -> int: the background now (main.gd's Backdrop: 0 dark, 1 casino, 2 passthrough)
 var _seen_backdrops := {}                # the BACKGROUNDS page: the ones seen so far
 var _deck_label: Label3D                 # the deck's cards while a hand is over it (in the picture frame)
 
@@ -487,7 +487,7 @@ func _show_deck(on: bool) -> void:
 		_complete()
 
 
-## The BACKGROUNDS page: GREEN, DARK and CASINO each seen once.
+## The BACKGROUNDS page: DARK and CASINO each seen once.
 func _check_backgrounds() -> void:
 	if not backdrop_probe.is_valid():
 		return

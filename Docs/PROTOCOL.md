@@ -42,7 +42,7 @@ Deck (incl. composition), round (ante, hands, discards, score, money), blind, st
 - `{"event": "shop_buy" | "card_used", "set": "...", "key": "...", "name": "...", "from_pack": bool}`
 - `{"event": "calibrate"}` – "Adjust VR Layout" in the Options menu
 - `{"event": "toggle_handedness"}` – "VR: Switch Hands" in the Options menu
-- `{"event": "toggle_calm" | "toggle_hands" | "toggle_ambience" | "cycle_spectator" | "show_tutorial"}` – the switches in "VR Settings" (Options); the client answers with `vr_flags`
+- `{"event": "toggle_calm" | "toggle_hands" | "toggle_ambience" | "show_tutorial"}` – the switches in "VR Settings" (Options); the client answers with `vr_flags`
 - `{"event": "quit_vr"}` – "QUIT VR" in the main menu: the client closes, Balatro keeps running
 - `{"event": "pack_ready", "uid", "name", "atlas", "pos"}` – a booster pack waits to be torn open in VR (the mod holds `Card:open()`; after 15 s or without VR it opens by itself)
 - `{"event": "score", "uid", "text", "kind", "c"}` – a scoring popup ("+30", "X2", "$3" …) at the moment the game shows it
@@ -81,7 +81,7 @@ Flat JSON objects; `id` is returned in the `ack`:
 | `deck_view` | `on` | Opens/closes "View Deck" (only closes the overlay it opened itself) |
 | `highlight` | `index` (1-based), `on` | Select a hand card |
 | `button` | `button`, `action` (tap/press/release) | Emulate a gamepad button |
-| `vr_flags` | `calm`, `hands`, `spec`, `amb` | The VR client's settings, so the "VR Settings" buttons show their state |
+| `vr_flags` | `calm`, `hands`, `amb` | The VR client's settings, so the "VR Settings" buttons show their state |
 | `ping` | – | Test |
 
 Gated commands (`click`, `play`, `discard`, `sort`, `move`, `deck_view`, `highlight`) wait while the game blocks input (animations, `G.CONTROLLER.locked`), just like the real controller, and expire after 3 s with `ok: false`. At most one such command is executed per frame.

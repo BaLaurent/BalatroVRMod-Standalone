@@ -27,7 +27,10 @@ local CFG = {
     max_queue_bytes = 32 * 1024 * 1024, -- texture atlases can be a few MB each
     command_timeout = 3.0,     -- drop gated commands that could not run for this long
     protocol_version = 2,
+    orphan_quit_after = 30.0,  -- (Quest host) quit once the VR client has been gone this long
 }
+
+local IS_ANDROID = love.system.getOS() == "Android"
 
 local VR = {
     seq = 0,
@@ -108,7 +111,10 @@ local NET = { tcp = nil, state = "idle", next_try = 0, started = 0, out = {}, ou
 
 local function net_close(reason)
     if NET.tcp then pcall(function() NET.tcp:close() end) end
-    if NET.state == "connected" then log("disconnected (" .. tostring(reason) .. ")") end
+    if NET.state == "connected" then
+        log("disconnected (" .. tostring(reason) .. ")")
+        VR.client_lost_at = love.timer.getTime()
+    end
     NET.tcp, NET.state = nil, "idle"
     NET.out, NET.out_bytes, NET.send_pos, NET.rx = {}, 0, 1, ""
 end
@@ -116,6 +122,7 @@ end
 local function net_on_connected()
     NET.state = "connected"
     log("connected to VR client on port " .. CFG.port)
+    VR.client_lost_at = nil
     -- force full snapshots, textures and the font for the new client
     VR.last_scene, VR.last_state = nil, nil
     VR.sent_atlas = {}
@@ -1518,7 +1525,6 @@ local HANDLERS = {
     vr_flags = { gated = false, fn = function(m)
         VR.calm_lights = (m.calm == true or m.calm == "true")
         if m.hands ~= nil then VR.hands = (m.hands == true or m.hands == "true") end
-        if type(m.spec) == "string" then VR.spectator = m.spec end
         if m.amb ~= nil then VR.ambience = (m.amb == true or m.amb == "true") end
         if m.jimbo ~= nil then VR.jimbo = (m.jimbo == true or m.jimbo == "true") end
         if m.j3d ~= nil then VR.jokers_3d = (m.j3d == true or m.j3d == "true") end
@@ -1762,15 +1768,28 @@ local function track_run_chips()
     game.vr_last_chips = chips -- a new round starts at 0 again
 end
 
+local function quest_host_tick(now)
+    -- the game loop runs now: bring the VR client up while Balatro shows its splash
+    if not VR.client_launch_sent then
+        VR.client_launch_sent = true
+        love.system.openURL("balatrovr-host://launch-client")
+    end
+    -- without a VR client a hidden Balatro would keep playing music and draining the battery
+    if VR.client_lost_at and NET.state ~= "connected" and now - VR.client_lost_at > CFG.orphan_quit_after then
+        log("VR client gone for " .. CFG.orphan_quit_after .. " s: quitting")
+        love.event.quit()
+    end
+end
+
 local game_update_ref = Game.update
 function Game:update(dt)
     game_update_ref(self, dt)
+    local now = love.timer.getTime()
+    if IS_ANDROID then pcall(quest_host_tick, now) end
     pcall(place_profile_button)
     pcall(track_run_chips)
     if VR.send_ambient_sounds then pcall(VR.send_ambient_sounds) end
     if VR.check_pending_pack then pcall(VR.check_pending_pack) end
-
-    local now = love.timer.getTime()
     local ok, err = pcall(function()
         if not net_update_connection(now) then return end
         net_receive(on_line)
@@ -1825,7 +1844,6 @@ VR.jokers_3d = true -- "VR: 3D Jokers": the joker figures on the board (off: onl
 VR.jokers_3d_mode = "On" -- On / Custom Only (only the player's own figures) / Off, set by the VR client
 VR.ambience = true -- "VR: Casino Sounds": slot machines, glasses, chips in the VR casino
 VR.wheel_mode = "Real" -- "VR: Wheel of Fortune": Off / Deterministic / Real (see Card:use_consumeable)
-VR.spectator = "Off" -- "VR: Spectator": the spectator camera window on the PC (Off / Eyes / Shoulder / Room)
 G.FUNCS.vr_show_tips = function(e) -- "VR: How To Play": Jimbo's tips in VR again
     G.FUNCS.exit_overlay_menu()
     VR.send_event("show_tutorial", {})
@@ -1840,7 +1858,6 @@ local function vr_settings_box()
         b("VR: Jimbo: " .. (VR.jimbo and "On" or "Off"), "vr_toggle_jimbo"),
         b("VR: 3D Jokers: " .. tostring(VR.jokers_3d_mode), "vr_toggle_jokers_3d"),
         b("VR: Casino Sounds: " .. (VR.ambience and "On" or "Off"), "vr_toggle_ambience"),
-        b("VR: Spectator: " .. tostring(VR.spectator), "vr_cycle_spectator"),
         b("VR: Wheel of Fortune: " .. tostring(VR.wheel_mode), "vr_cycle_wheel"),
         b("VR: How To Play", "vr_show_tips"),
         -- the casino floor up or down (cm), when you seem to float or sink in the virtual casino
@@ -1869,10 +1886,6 @@ local function refresh_vr_settings()
         end }))
 end
 
-G.FUNCS.vr_cycle_spectator = function(e)
-    VR.send_event("cycle_spectator", {})
-    refresh_vr_settings()
-end
 G.FUNCS.vr_toggle_ambience = function(e)
     VR.send_event("toggle_ambience", {})
     refresh_vr_settings()

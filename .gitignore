@@ -17,3 +17,8 @@ Backups/
 client/tutorial/*
 !client/tutorial/README.md
 !client/tutorial/voice_script.md
+
+# Quest build: third-party addon, regenerated export template, host build cache
+client/addons/godotopenxrvendors/
+client/android/
+quest/host/.work/

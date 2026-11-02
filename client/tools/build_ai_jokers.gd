@@ -117,7 +117,7 @@ func _shrink(path: String, key: String, cut: float) -> int:
 	mat.roughness = 0.8
 	if img:
 		img.generate_mipmaps()
-		img.compress(Image.COMPRESS_S3TC, Image.COMPRESS_SOURCE_SRGB)
+		img.compress(Image.COMPRESS_ETC2, Image.COMPRESS_SOURCE_SRGB)
 		var tex := ImageTexture.create_from_image(img)
 		mat.albedo_texture = tex
 		mat.emission_texture = tex # glowing jokers glow in their own colours

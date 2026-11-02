@@ -3,8 +3,8 @@ extends Node3D
 ## Photo mode: a little instant camera (VR menu ≡ -> Photo Camera). Grab it with the grip; the
 ## trigger of the hand holding it takes a photo. Let go and it stays floating where it is - point
 ## at it with the beam and pull the trigger: a 3 second self-timer, time to strike a pose.
-## A live view on its back shows what it sees; every photo is saved as a PNG in
-## a Photos folder next to the program, and a little print slides out of the camera.
+## A live view on its back shows what it sees; every photo is saved as a PNG in the headset's
+## Pictures folder (Balatro in VR), and a little print slides out of the camera.
 ## Its lens looks along -z (like a Godot camera).
 
 signal shot(path: String)
@@ -24,7 +24,7 @@ var _click: AudioStreamPlayer3D
 
 
 var polaroid := false              # "Say Cheese!" reward: photos get a white instant-photo frame
-var folder := "Photos"             # where photos go, next to the program (test mode: Photos/Feedback)
+var folder := "Photos"             # where photos go: Pictures/Balatro in VR (test mode: Photos/Feedback)
 
 func _ready() -> void:
 	var body := _mat(Color(0.12, 0.12, 0.14), 0.4, 0.2)
@@ -160,11 +160,10 @@ func take_photo() -> String:
 		img = framed
 	var t := Time.get_datetime_dict_from_system()
 	var file := "BalatroVR_%04d-%02d-%02d_%02d-%02d-%02d.png" % [t.year, t.month, t.day, t.hour, t.minute, t.second]
-	# a "Photos" folder next to Balatro in VR.exe (when run from the project: next to it); if that
-	# can't be written (e.g. under Program Files), the Pictures folder instead
-	var base := OS.get_executable_path().get_base_dir() if OS.has_feature("template") else ProjectSettings.globalize_path("res://").path_join("..")
+	# the headset's shared Pictures folder (shows up in the gallery); if that can't be written, the
+	# app's private storage
 	var path := ""
-	for dir in [base.path_join(folder), OS.get_system_dir(OS.SYSTEM_DIR_PICTURES).path_join("Balatro in VR").path_join(folder.trim_prefix("Photos"))]:
+	for dir in [OS.get_system_dir(OS.SYSTEM_DIR_PICTURES).path_join("Balatro in VR").path_join(folder.trim_prefix("Photos")), "user://".path_join(folder)]:
 		DirAccess.make_dir_recursive_absolute(dir)
 		path = dir.simplify_path().path_join(file)
 		if img.save_png(path) == OK:

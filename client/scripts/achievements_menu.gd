@@ -17,7 +17,7 @@ const GROUPS := [
 		"coin_slot", "peeking", "price_check", "fortune_teller", "real_full_house", "up_close", "glass_breaker"]],
 	["SHOP", Color(1.0, 0.6, 0.15), ["big_spender", "one_armed", "lever_frenzy", "window_shopper", "hands_on", "bargain"]],
 	["WHEEL OF FORTUNE", Color(0.95, 0.3, 0.4), ["lady_luck", "three_row", "spin_doctor"]],
-	["CASINO ROOM", Color(0.7, 0.45, 1.0), ["welcome", "streamer", "endless", "stargazer", "ghost_hunter", "mountain", "vradar",
+	["CASINO ROOM", Color(0.7, 0.45, 1.0), ["welcome", "endless", "stargazer", "ghost_hunter", "mountain", "vradar",
 		"planet_hopper", "curator"]],
 	["SCORE TOWER", Color(0.3, 0.85, 0.85), ["sky_high", "close_call", "hot_streak", "boss_slayer"]],
 	["CARDS & PACKS", Color(1.0, 0.85, 0.3), ["rip_it", "pack_surgeon", "card_sharp", "shuffle_master", "over_shoulder",

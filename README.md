@@ -1,6 +1,6 @@
 # Balatro in VR
 
-Play [Balatro](https://www.playbalatro.com/) in virtual reality. Balatro keeps running on your PC as usual; a small mod (**BalatroVRBridge**) sends the whole game to a VR client built with Godot, which shows it around you in a virtual casino:
+Play [Balatro](https://www.playbalatro.com/) in virtual reality, standalone on a Meta Quest. Balatro runs on the headset itself (the **Balatro VR Host** app, built from your own copy of the game); a small mod (**BalatroVRBridge**) sends the whole game to a VR client built with Godot, which shows it around you in a virtual casino:
 
 - your cards in your hand – grab them, play them on the stake chip, throw them over your shoulder to discard
 - jokers as 3D models on the table, booster packs to tear open, a reroll machine with a lever
@@ -11,41 +11,46 @@ Play [Balatro](https://www.playbalatro.com/) in virtual reality. Balatro keeps r
 
 Watch the Showcase Trailer here: https://youtu.be/jdWvll1mY_0
 
-You need your own copy of Balatro: the client takes all card art, sounds and the font from your installed game while it runs – **no game files from Balatro are included here.** Fan project, not affiliated with LocalThunk or Playstack.
+You need your own copy of Balatro: the Balatro VR Host app is built on your own machine from your own `Balatro.exe`, and the client takes all card art, sounds and the font from that running game – **no game files from Balatro are included here.** The built `BalatroVRHost.apk` contains your copy of the game: never share it or attach it to a release; only the client APK (`BalatroInVR-Quest.apk`) can be distributed. Fan project, not affiliated with LocalThunk or Playstack.
 
 ## Install
 
-You need Balatro (Steam, Windows) and a VR headset (e.g. Meta Quest with Virtual Desktop or Quest Link, or SteamVR).
+You need a **Meta Quest 3 / 3S** in developer mode, a computer to build and install the apps once, and your own **Balatro** from Steam (`Balatro.exe`, version 1.0.1o). There is no download: both apps are built on your machine, the host one from your own copy of the game.
 
-1. **Lovely:** download `lovely-x86_64-pc-windows-msvc.zip` from [lovely-injector releases](https://github.com/ethangreen-dev/lovely-injector/releases) and copy the `winmm.dll` inside it into Balatro's game folder (Steam → right-click Balatro → Manage → Browse local files).
-2. **Steamodded:** download [Steamodded](https://github.com/Steamodded/smods) (Code → Download ZIP) and unpack it into `%AppData%\Balatro\Mods\`.
-3. **Balatro in VR:** download the zip from the [Releases](https://github.com/alextreumer/BalatroVRMod/releases) page. Copy its `Mod\BalatroVRBridge` folder into `%AppData%\Balatro\Mods\` and the `Balatro in VR` folder anywhere you like.
-4. **Play:** start your VR software, then `Balatro in VR.exe`, then Balatro. Both find each other by themselves.
+1. Headset in developer mode, connected with USB, `adb devices` lists it.
+2. Install Godot 4.7.2, JDK 17 and the Android SDK (platform-tools, platforms 34 + 36, build-tools, NDK 25.2.9519653), and point Godot's editor settings at the SDK and JDK.
+3. From this repo:
+   ```
+   quest/fetch_deps.sh
+   quest/build_client.sh --install
+   python3 quest/host/build_host.py --balatro "<path>/Balatro.exe" --install
+   ```
+4. On the headset, turn on the controllers and open **Balatro VR Host** from the library (Unknown sources). It runs Balatro in the background and opens **Balatro in VR** by itself.
 
-The zip contains `INSTALL.md` with every step in detail and help if something does not work.
+**[INSTALL.md](INSTALL.md) has every step in detail** (exact SDK packages, where the settings go, updating, troubleshooting).
 
-## Or build it yourself
+## Build it yourself
 
 - `client/` – the Godot 4.7 VR client (see `client/README.md` for all controls and features)
-- `BalatroMod/` – the Balatro mod (Lovely + Steamodded)
+- `BalatroMod/` – the Balatro mod, injected into the host app by `quest/host/build_host.py`
+- `quest/` – build scripts for the two Quest apps
 - `Docs/` – the protocol between mod and client, architecture notes
 
-1. Install [Godot 4.7.2](https://godotengine.org/download/archive/4.7.2-stable/) and its export templates (Editor → Manage Export Templates).
-2. Open `client/project.godot` in Godot.
-3. Run it from the editor, or export it: Project → Export → *Windows Desktop*. The preset writes `Release/Balatro in VR/Balatro in VR.exe` and its `.pck` (both must stay together).
-4. Install Lovely and Steamodded as in [Install](#install), then copy `BalatroMod/BalatroVRBridge` into `%AppData%\Balatro\Mods\`.
+Everything is built with the scripts in `quest/` (details in `INSTALL.md`): Godot 4.7.2, JDK 17, the Android SDK and `adb` are required.
+
+1. `quest/fetch_deps.sh` – Godot Android export templates, OpenXR vendors plugin, signing keystore (once).
+2. `quest/build_client.sh [--install]` – exports the VR client to `Release/BalatroInVR-Quest.apk`.
+3. `python3 quest/host/build_host.py --balatro <path>/Balatro.exe [--install]` – builds `Release/BalatroVRHost.apk` from your own Balatro.
 
 For development, set `TEST_TOOLS := true` in `client/scripts/main.gd` (joker gallery and boss preview in the VR menu) and `TEST_MONEY = true` in `BalatroVRBridge.lua` (money and test buttons in Balatro).
 
-Running Godot without a headset (scripts, imports, test renders): always pass `--xr-mode off`, otherwise OpenXR fails and Godot shows a "headset missing" message that blocks the run, e.g. `Godot_v4.7.2-stable_win64_console.exe --headless --xr-mode off --path client -s res://tools/shrink_ai_models.gd -- ...`. Windowed renders (screenshots of a scene) work the same way without `--headless`.
+Running Godot without a headset (scripts, imports, test renders): always pass `--xr-mode off`, otherwise OpenXR fails and Godot shows a "headset missing" message that blocks the run, e.g. `godot --headless --xr-mode off --path client -s res://tools/shrink_ai_models.gd -- ...`. Without `--headless` it opens a non-VR camera view for a quick look.
 
 ### Reporting bugs
 
 Open an [issue](https://github.com/alextreumer/BalatroVRMod/issues) and attach, if you can:
 
-- the newest log from `%AppData%\Balatro\Mods\lovely\log\` (the mod's lines start with `[BalatroVR]`)
-- the newest log from `%AppData%\Godot\app_userdata\Balatro in VR\logs\`
-- your Steamodded version and VR setup (Quest via Virtual Desktop, Quest Link, SteamVR …)
+- the log lines from the headset: `adb logcat -s godot SDL/APP BalatroVRHost` (the mod's lines start with `[BalatroVR]`), and your headset model
 
 ## License
 

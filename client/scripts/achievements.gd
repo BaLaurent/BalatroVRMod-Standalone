@@ -67,8 +67,6 @@ const LIST := [
 		"reward": "Golden Solatro cards"},
 	{"id": "ovation", "name": "Standing Ovation", "text": "Win a run in standing mode", "goal": 1,
 		"reward": "Applause when you win"},
-	{"id": "streamer", "name": "Streamer", "text": "Play 1 hour with the spectator window on", "goal": 60,
-		"reward": "LIVE neon sign in the casino"},
 	{"id": "stargazer", "name": "Stargazer", "text": "Use 25 planet cards in VR", "goal": 25,
 		"reward": "A starry sky in the casino"},
 	{"id": "fortune_teller", "name": "Fortune Teller", "text": "Use 25 tarot cards in VR", "goal": 25,

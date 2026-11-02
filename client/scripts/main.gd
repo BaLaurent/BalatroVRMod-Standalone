@@ -8,12 +8,12 @@ extends Node3D
 #   joker board on the table with the augmented jokers on pedestals and the 3D draw pile
 #   (hover with a hand = "View Deck") · spinning blind chip in front of you.
 #
-# VR (Quest 3 over Virtual Desktop):
+# VR (Quest 3, standalone):
 #   Right controller: aim with the blue beam, Trigger = click, Grip near the left hand = grab the
 #   selected cards (release at the chip = play, behind the shoulder = discard), A = play, B = discard.
 #   Pointing at a card for a moment shows its tooltip.
 #   Left controller: holds the hand. Y = move everything in front of you, X = switch background
-#   (passthrough / green for Virtual Desktop's chroma key / virtual room), Menu = layout calibration.
+#   (dark / virtual room / passthrough), Menu = layout calibration.
 # Desktop test (no headset): left click = click, right mouse button held on a card = tooltip,
 #   P = play, D = discard, B = switch background, C = calibration on/off.
 
@@ -66,9 +66,10 @@ const JOKER_ROW_DEPTH := 0.13                   # between the two rows
 const JOKER_ROW_Z := -0.12                      # back row
 const JOKER_SCENES := "res://jokers/%s.tscn"    # one scene per joker key, e.g. j_castle.tscn
 ## The player's own joker figures: <joker key>.glb / .gltf (e.g. j_popcorn.glb, "popcorn.glb" works
-## too) in one of these folders replaces the figure that comes with the game. user:// is
-## %APPDATA%\Godot\app_userdata\Balatro in VR; the second one sits next to the exe.
-const CUSTOM_JOKER_DIRS := ["user://custom_jokers/", "<exe>/custom_jokers/"]
+## too) in this folder replace the figure that comes with the game. "<app>" is the app's own external
+## documents folder, on the headset Android/data/io.github.balaurent.balatroinvr/files/Documents/custom_jokers
+## (reachable over USB or adb, no permission needed); user://custom_jokers/ is the fallback.
+const CUSTOM_JOKER_DIRS := ["<app>/custom_jokers/"]
 const CUSTOM_JOKER_HEIGHT := 0.11                # metres; like the figures that come with the game
 const CUSTOM_JOKER_MAX_WIDTH := 0.14
 const DECK_POS := Vector3(0.22, JOKER_TABLE_TOP, 0.13) # draw pile at the front right corner of the mat
@@ -87,7 +88,7 @@ const FLICK_SPEED := 0.7                        # m/s: grabbed cards let go this
 const FLICK_AIM := 0.25                         # ... roughly towards the blind chip (cos of ~75 degrees) or forward, away from you
 const FLICK_WINDOW := 0.25                      # s: how far back the flick may lie when the grip opens
 const LAYOUT_FILE := "user://vr_layout.cfg"
-const PERF_RENDER_SCALE := 0.8   # performance mode: pixels per eye (each side) compared to the headset's own
+const RENDER_SCALE := 1.3         # pixels per eye (each side) compared to the headset's own default
 const LAYOUT_VERSION := 3                       # v2: pile + slots on the joker board, v3: board reshaped (0.5 x 0.6)
 const CALIB_GRAB_RADIUS := 0.15
 
@@ -96,7 +97,7 @@ const DECK_CARD_THICKNESS := 0.0011             # per card in the pile
 const DECK_HOVER_RADIUS := 0.09
 
 const HOVER_DELAY := 0.15                       # seconds of pointing before a tooltip is requested
-const BALATRO_CHECK_INTERVAL := 1.5             # seconds between "is Balatro.exe running?" checks
+const WAITING_STATUS := "Waiting for Balatro ... (open Balatro VR Host)"
 const BEAM_LENGTH := 4.0                        # pointer beam / ray reach when it hits nothing (meters)
 const REORDER_AREAS := ["hand", "jokers"]       # rows whose order matters for scoring (left to right)
 const DRAG_GHOST_SIZE := Vector2(0.05, 0.067)   # small copy of the dragged card at the pointer
@@ -110,7 +111,7 @@ const DECK_COLORS := {
 	"b_anaglyph": Color(0.3, 0.75, 0.8), "b_plasma": Color(0.6, 0.3, 0.85), "b_erratic": Color(0.9, 0.45, 0.15),
 }
 
-enum Backdrop { GREEN, DARK, ROOM, PASSTHROUGH } # DARK: a calm near-black backdrop for viewers (no chroma key)
+enum Backdrop { DARK, ROOM, PASSTHROUGH } # DARK: a calm near-black backdrop (no casino)
 # PASSTHROUGH: the headset's own camera view through OpenXR alpha blending (only offered when the runtime supports it)
 
 var _server := TCPServer.new()
@@ -164,9 +165,9 @@ const CONFETTI_WON := 10.0    # seconds of confetti for a won run ...
 const CONFETTI_LOST := 6.0    # ... and for game over
 var _last_end := ""           # "", "won" or "lost" – confetti only when this changes
 var _was_in_state := false    # no confetti for the very first state (e.g. reconnecting on the Game Over screen)
-var _balatro_running := false
-var _proc_thread: Thread
-var _proc_timer := 0.0
+var _printed_state := ""      # last Balatro state name written to the log
+var _scene_lines := 0         # scene updates received since the last "Link:" log line
+var _link_log_at := 0         # when the next "Link:" log line is due (ms)
 
 var _shop_sign: Node3D        # animated SHOP sign at the shop
 var _shop_sign_info := {}     # {"atlas": ..., "frames": n} while the shop is open
@@ -264,34 +265,9 @@ func _exit_tree() -> void:
 	if _peer != null:
 		_peer.disconnect_from_host()
 	_server.stop()
-	if _proc_thread != null:
-		_proc_thread.wait_to_finish()
 
 
 # ---------------------------------------------------------------- Balatro start-up (flying cards)
-
-func _poll_balatro_process(delta: float) -> void:
-	if OS.get_name() != "Windows":
-		return
-	if _proc_thread != null and not _proc_thread.is_alive():
-		_balatro_running = _proc_thread.wait_to_finish()
-		_proc_thread = null
-	if _connected:
-		_balatro_running = true
-		return
-	_proc_timer -= delta
-	if _proc_timer > 0.0 or _proc_thread != null:
-		return
-	_proc_timer = BALATRO_CHECK_INTERVAL
-	_proc_thread = Thread.new() # tasklist takes ~0.1 s: never on the render thread
-	_proc_thread.start(_is_balatro_running)
-
-
-func _is_balatro_running() -> bool:
-	var output: Array = []
-	OS.execute("tasklist", ["/FI", "IMAGENAME eq Balatro.exe", "/NH"], output)
-	return output.size() > 0 and str(output[0]).to_lower().contains("balatro.exe")
-
 
 ## The game counts as ready once it sends anything past its own splash screen (usually the main menu).
 func _game_ready() -> bool:
@@ -299,13 +275,12 @@ func _game_ready() -> bool:
 
 
 func _update_intro() -> void:
-	_intro.set_active((_balatro_running or _connected) and not _game_ready())
+	_intro.set_active(_connected and not _game_ready())
 	_status3d.visible = not _connected and not _intro.is_showing()
 
 
 func _process(delta: float) -> void:
 	_poll_network()
-	_poll_balatro_process(delta)
 	_update_intro()
 	_ask_tutorial_atlases(delta)
 	_stars.global_position = _head.global_position if _vr else _camera.global_position # around the player
@@ -407,6 +382,7 @@ func _poll_network() -> void:
 		var line := _rx.slice(start, nl).get_string_from_utf8()
 		start = nl + 1
 		if line.begins_with('{"type":"scene"'):
+			_scene_lines += 1
 			latest_scene = line
 		else:
 			_handle_message(line)
@@ -414,6 +390,10 @@ func _poll_network() -> void:
 		_rx = _rx.slice(start)
 	if latest_scene != "":
 		_handle_message(latest_scene)
+	if Time.get_ticks_msec() >= _link_log_at:
+		print("Link: %d scene updates in the last minute" % _scene_lines)
+		_scene_lines = 0
+		_link_log_at = Time.get_ticks_msec() + 60000
 
 
 func _handle_message(line: String) -> void:
@@ -455,8 +435,6 @@ func _handle_message(line: String) -> void:
 					_cycle_jokers_3d() # "VR: 3D Jokers" in VR Settings
 				"toggle_hands":
 					_set_hands(not _hands_on) # "VR: Hands" in the game's Options menu
-				"cycle_spectator":
-					_cycle_spectator() # "VR: Spectator" in the game's Options menu
 				"show_tutorial":
 					_show_tutorial() # "VR: How To Play" in the game's Options menu
 				"quit_vr":
@@ -521,6 +499,10 @@ func _on_node_added(node: Node) -> void:
 
 func _apply_scene(scene: Dictionary) -> void:
 	_last_scene = scene
+	var scene_state := str(scene.get("state_name", ""))
+	if scene_state != _printed_state:
+		_printed_state = scene_state
+		print("Balatro state: ", scene_state)
 	# compact run panel whenever no blind is being played (shop, blind select, cash out, packs)
 	_board.compact_hud = _state.get("in_run", false) and not ROUND_STATES.has(str(scene.get("state_name", "")))
 	_board.hide_hud = _vr # (score: tower; hands, discards, ante, boss, chips x mult: the play stand; money: the coins)
@@ -576,13 +558,16 @@ func _set_connected(on: bool) -> void:
 	if on == _connected:
 		return
 	_connected = on
+	print("Balatro connected" if on else "Balatro disconnected")
 	if not on:
-		_balatro_running = false # re-checked within 1.5 s; avoids "starting" while Balatro closes
+		_printed_state = ""
 		_menu_atlas_asked = false
 		_last_scene = {}
 	_status3d.visible = not on and not _intro.is_showing()
-	_set_status("Connected" if on else "Waiting for Balatro ... (start the game with the mod)")
+	_set_status("Connected" if on else WAITING_STATUS)
 	if on:
+		_scene_lines = 0
+		_link_log_at = Time.get_ticks_msec() + 60000
 		_send_flags() # the Options menu shows our settings
 
 
@@ -994,20 +979,17 @@ func _joker_scene(key: String) -> PackedScene:
 	return _joker_scenes[key]
 
 
-## The folders players put their own joker models into (the one in user:// is made on the first
-## look, with a short note what goes in there).
+## The folder players put their own joker models into (made on the first look, with a short note
+## what goes in there).
 func _custom_joker_dirs() -> Array:
-	var dirs := []
-	for d in CUSTOM_JOKER_DIRS:
-		if d.begins_with("<exe>"):
-			if OS.has_feature("editor"):
-				continue # (the exe is Godot itself: only user://)
-			d = d.replace("<exe>", OS.get_executable_path().get_base_dir())
-		dirs.append(d)
-	var mine: String = dirs[0]
-	if not DirAccess.dir_exists_absolute(mine):
+	var docs := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS, false)
+	var mine: String = CUSTOM_JOKER_DIRS[0].replace("<app>", docs)
+	if docs == "" or DirAccess.make_dir_recursive_absolute(mine) != OK:
+		mine = "user://custom_jokers/"
 		DirAccess.make_dir_recursive_absolute(mine)
-		var note := FileAccess.open(mine.path_join("README.txt"), FileAccess.WRITE)
+	var note_path := mine.path_join("README.txt")
+	if not FileAccess.file_exists(note_path):
+		var note := FileAccess.open(note_path, FileAccess.WRITE)
 		if note != null:
 			note.store_string("Your own joker figures for Balatro in VR\n\n"
 				+ "Put a 3D model (.glb or .gltf) in this folder and name it after the joker's key,\n"
@@ -1016,7 +998,7 @@ func _custom_joker_dirs() -> Array:
 				+ "The model is stood upright on its pedestal and scaled to 11 cm (at most 14 cm wide).\n"
 				+ "Optional: j_popcorn.json next to it, e.g. {\"height\": 0.15, \"rotation\": [0, 90, 0]}\n"
 				+ "(height in metres, rotation in degrees around X, Y, Z before scaling).\n")
-	return dirs
+	return [mine]
 
 
 ## A joker model from the player's folder as a scene, or null if there is none (or it can't be read).
@@ -3741,7 +3723,7 @@ func _toggle_wrist_menu() -> void:
 					_send_flags()},
 			{"col": 0, "label": func(): return "Mode: " + ("Standing" if _standing else "Sitting"), "action": func(): _set_standing(not _standing)},
 			{"col": 0, "label": func(): return "Switch Hands", "action": func(): _set_left_handed(not _left_handed)},
-			{"col": 0, "label": func(): return "Background: " + ["Green", "Dark", "Casino", "Passthrough"][_backdrop], "action": func(): _next_backdrop()},
+			{"col": 0, "label": func(): return "Background: " + ["Dark", "Casino", "Passthrough"][_backdrop], "action": func(): _next_backdrop()},
 			{"col": 0, "label": func(): return "Calm Lights: " + ("On" if _calm else "Off"), "action": func(): _set_calm(not _calm)},
 			{"col": 0, "label": func(): return "Casino Sounds: " + ("On" if _ambience_on else "Off"), "action": func(): _set_ambience(not _ambience_on)},
 			{"col": 0, "label": func(): return "Performance: " + ("On" if _perf else "Off"), "action": func(): _set_perf(not _perf)},
@@ -3756,7 +3738,6 @@ func _toggle_wrist_menu() -> void:
 				_wrist.visible = false
 				_open_achievements()},
 			{"col": 1, "label": func(): return "Photo Camera: " + ("On" if _photo != null and _photo.visible else "Off"), "action": func(): _toggle_photo()},
-			{"col": 1, "label": func(): return "Spectator: " + Spectator.NAMES[_spectator.mode], "action": func(): _spectator.next_mode()},
 			{"col": 1, "label": func(): return "Hands: " + ("On" if _hands_on else "Off"), "action": func(): _set_hands(not _hands_on)},
 			{"col": 1, "label": func(): return "Jimbo: " + ("On" if _jimbo_on else "Off"), "action": func(): _set_jimbo(not _jimbo_on)},
 			{"col": 1, "label": func(): return "3D Jokers: " + _jokers_3d_mode(), "action": func(): _cycle_jokers_3d()},
@@ -3831,12 +3812,7 @@ func _load_settings() -> void:
 		if not WHEEL_MODES.has(_wheel_mode):
 			_wheel_mode = "Real"
 		_standing = cfg.get_value("settings", "standing", false)
-		_perf = cfg.get_value("settings", "performance", false)
-		if _spectator != null:
-			var spec = cfg.get_value("settings", "spectator", "Off")
-			if spec is int: # saved as a number before there were five views: 0 off, 1 eyes, 2 shoulder, 3 room
-				spec = ["Off", "Eyes", "Shoulder", "Room"][clampi(spec, 0, 3)]
-			_spectator.set_mode(maxi(Spectator.NAMES.find(str(spec)), 0))
+		_perf = cfg.get_value("settings", "performance", true)
 	_casino.ambience.set_active(_backdrop == Backdrop.ROOM and _ambience_on)
 	_casino.set_calm(_calm)
 	_apply_perf()
@@ -3892,23 +3868,6 @@ func _show_tutorial() -> void:
 	var at: Node3D = _fan_anchor if _fan_anchor != null else _main_menu
 	if at != null:
 		_rack_hint(at, "The VR TUTORIAL is on the menu table (main menu)")
-
-
-## "VR: Spectator" in the game's Options menu: off -> eyes -> shoulder -> room -> off. Also the keys
-## 1 / 2 / 3 in the spectator window. Kept in the settings.
-func _cycle_spectator() -> void:
-	if _spectator == null:
-		return
-	_spectator.next_mode() # (saved by the mode_changed signal)
-
-
-func _save_spectator() -> void:
-	var cfg := ConfigFile.new()
-	cfg.load(LAYOUT_FILE)
-	cfg.set_value("settings", "spectator", Spectator.NAMES[_spectator.mode]) # by name: survives new views
-	cfg.save(LAYOUT_FILE)
-	_send_flags()
-	_set_status("Spectator camera: " + Spectator.NAMES[_spectator.mode])
 
 
 ## Tells the mod our settings, so the Options menu buttons show their state.
@@ -4034,7 +3993,7 @@ func _apply_rewards() -> void:
 		_solatro.set_golden_bowl(_ach.reward("token_hoarder") and _ach.metal("token_hoarder").a > 0.0, _ach.metal("token_hoarder"))
 	if _counter != null:
 		_counter.sale = _ach.reward("bargain")
-	_casino.set_reward_signs(_ach.reward("streamer"), _ach.reward("endless"))
+	_casino.set_reward_signs(_ach.reward("endless"))
 	if _main_menu != null:
 		_main_menu.set_safe_travels(_ach.reward("safe_travels"))
 	_casino.set_star_ceiling(_ach.reward("stargazer"))
@@ -4180,16 +4139,10 @@ func _update_boss_trophy() -> void:
 	_set_sprite_face(trophy.get_node("Face"), sprite, Vector2.ONE * 0.042)
 
 
-## Achievements that count time: "Streamer" (minutes with the spectator window on), and the
-## "Ghost Hunter" reward (the Spectral Lounge haunts every half minute or so).
+## The "Ghost Hunter" reward (the Spectral Lounge haunts every half minute or so).
 func _tick_achievements(delta: float) -> void:
 	if _ach == null:
 		return
-	if _vr and _spectator != null and _spectator.mode != 0:
-		_stream_secs += delta
-		if _stream_secs >= 60.0:
-			_stream_secs -= 60.0
-			_ach.add("streamer")
 	_tick_vr_handling(delta)
 	_tick_jimbo(delta)
 	if _ach.reward("ghost_hunter") and _casino.visible:
@@ -4530,7 +4483,9 @@ func _close_comment() -> void:
 
 
 func _save_comment() -> void:
-	var f := FileAccess.open(_comment_photo.get_basename() + ".txt", FileAccess.WRITE)
+	var dir := "user://".path_join(_photo.folder)
+	DirAccess.make_dir_recursive_absolute(dir)
+	var f := FileAccess.open(dir.path_join(_comment_photo.get_file().get_basename() + ".txt"), FileAccess.WRITE)
 	if f == null:
 		return
 	f.store_string("Comment: %s\n\nPhoto: %s\nContext (what the game showed): %s\n" % [
@@ -4576,7 +4531,7 @@ func _feedback_context() -> Dictionary:
 
 
 # ---------------------------------------------------------------- mixed reality: the real table
-# In passthrough (and with the Green background for Virtual Desktop) the joker board can sit exactly on your real table: VR menu -> Measure Real Table,
+# In passthrough the joker board can sit exactly on your real table: VR menu -> Measure Real Table,
 # then lay the controller on the left and on the right end of the table's front edge and pull the
 # trigger each time. The board is put flat onto the table, its front edge along the real one, and
 # soft shadows under jokers, deck, money and stands ground them on the real wood. Saved in tracking space (it is your room's table), applied again after every
@@ -4654,10 +4609,9 @@ func _set_real_table(left: Vector3, right: Vector3) -> void:
 ## standing on it. (The renderer can't draw real shadows on a see-through surface, so every joker,
 ## the deck, the money and the stands get a soft dark "blob" under them - like in many AR apps.)
 func _apply_real_table() -> void:
-	# the board onto the real table with the Green background (Virtual Desktop keys the green out);
-	# the soft shadows are a test there: a dark patch on the green may not key out cleanly
-	var on := _real_table_set and (_backdrop == Backdrop.GREEN or _backdrop == Backdrop.PASSTHROUGH)
-	_set_blob_shadows(false) # (no shadow blobs: on the green they showed as dark green patches)
+	# the board onto the real table in passthrough
+	var on := _real_table_set and _backdrop == Backdrop.PASSTHROUGH
+	_set_blob_shadows(false) # (no shadow blobs)
 	if not on:
 		return
 	var s := _joker_table.global_basis.get_scale().x
@@ -5061,7 +5015,7 @@ func _set_ambience(on: bool) -> void:
 
 func _send_flags() -> void:
 	_send({"cmd": "vr_flags", "calm": _calm, "hands": _hands_on,
-		"spec": Spectator.NAMES[_spectator.mode] if _spectator != null else "Off", "amb": _ambience_on,
+		"amb": _ambience_on,
 		"floor": _floor_cm, "wheel": _wheel_mode, "jimbo": _jimbo_on, "j3d": _jokers_3d,
 		"j3d_mode": _jokers_3d_mode()})
 
@@ -5178,10 +5132,9 @@ func _update_calibration_help() -> void:
 # ---------------------------------------------------------------- background / passthrough
 
 func _available_backdrops() -> Array:
-	var modes: Array = [] # (Virtual Desktop shows your room through the Green background - chroma key)
+	var modes: Array = []
 	if _passthrough_supported():
-		modes.append(Backdrop.PASSTHROUGH) # real passthrough (e.g. Steam Frame, Virtual Desktop's own runtime)
-	modes.append(Backdrop.GREEN)
+		modes.append(Backdrop.PASSTHROUGH) # real passthrough through the headset's cameras
 	modes.append(Backdrop.DARK)
 	modes.append(Backdrop.ROOM)
 	return modes
@@ -5200,23 +5153,22 @@ func _next_backdrop() -> void:
 
 func _set_backdrop(mode: Backdrop) -> void:
 	_backdrop = mode
-	if mode != Backdrop.GREEN:
-		_set_blob_shadows(false)
+	_set_blob_shadows(false)
 	var see_through := mode != Backdrop.ROOM
 	_casino.visible = not see_through
 	# the casino is lit by its own warm lamps; in passthrough the neutral light shows models best
 	_sun.light_energy = 0.08 if not see_through else 1.0 # late at night: neon and the table lamp light the room
 	_env.ambient_light_color = Color(0.2, 0.17, 0.26) if not see_through else Color(0.6, 0.6, 0.6)
 	_board.set_backing_visible(false) # panels float freely in every mode; a green felt wall breaks the casino
-	var flat := mode == Backdrop.GREEN or mode == Backdrop.DARK # plain backdrops: no casino, no glow
+	var flat := mode == Backdrop.DARK # plain backdrop: no casino, no glow
 	_board.opaque_mode = flat
 	CardArt.solid_debuff = flat # faded debuffed cards would mix with the flat colour
 	if _vr and not _hand_items.is_empty():
 		_rebuild_hand(_hand_items)
 	_board.hide_dimmers = see_through
-	_env.glow_enabled = mode == Backdrop.ROOM and not _perf # bloom halos would tint the chroma-key green / smear the passthrough alpha (performance mode: no bloom)
+	_env.glow_enabled = mode == Backdrop.ROOM and not _perf # bloom halos would smear the passthrough alpha (performance mode: no bloom)
 	# the casino: smoky air that swallows the far corners, filmic colours with a bit more contrast
-	# (passthrough and green stay neutral)
+	# (passthrough stays neutral)
 	_env.fog_enabled = mode == Backdrop.ROOM
 	_env.tonemap_mode = Environment.TONE_MAPPER_FILMIC if mode == Backdrop.ROOM else Environment.TONE_MAPPER_LINEAR
 	_env.adjustment_enabled = mode == Backdrop.ROOM
@@ -5237,15 +5189,6 @@ func _set_backdrop(mode: Backdrop) -> void:
 			_env.background_mode = Environment.BG_COLOR
 			_env.background_color = Color(0, 0, 0, 0)
 			_set_status("Background: passthrough")
-		Backdrop.GREEN:
-			# pure green for Virtual Desktop's chroma-key passthrough
-			_apply_real_table.call_deferred()
-			if _vr:
-				_xr.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_OPAQUE
-			get_viewport().transparent_bg = false
-			_env.background_mode = Environment.BG_COLOR
-			_env.background_color = Color(0, 1, 0)
-			_set_status("Background: green (Virtual Desktop passthrough)")
 		Backdrop.DARK:
 			# a calm near-black backdrop: easy on the eyes for whoever watches the recording
 			if _vr:
@@ -5298,31 +5241,29 @@ func _start_xr() -> bool:
 	_xr = XRServer.find_interface("OpenXR")
 	if _xr == null:
 		return false
-	# Performance mode renders fewer pixels per eye. The headset's image size can only be set before
-	# OpenXR starts, so a change in the VR menu takes effect with the next start.
-	var cfg := ConfigFile.new()
-	_perf = cfg.load(LAYOUT_FILE) == OK and cfg.get_value("settings", "performance", false)
+	# Performance mode only trims effects, never the picture: more pixels than the headset's default
+	# (sharper card text); the game is calm, so a lower frame rate is fine.
 	if _xr is OpenXRInterface:
-		(_xr as OpenXRInterface).render_target_size_multiplier = PERF_RENDER_SCALE if _perf else 1.0
+		(_xr as OpenXRInterface).render_target_size_multiplier = RENDER_SCALE
+	var cfg := ConfigFile.new()
+	cfg.load(LAYOUT_FILE) # (no file on a fresh install: performance mode on)
+	_perf = cfg.get_value("settings", "performance", true)
 	if not _xr.initialize():
 		return false
 	get_viewport().use_xr = true
 	# which backgrounds the runtime can blend (OPAQUE 0, ADDITIVE 1, ALPHA_BLEND 2): ALPHA_BLEND means passthrough works
 	print("OpenXR environment blend modes: ", _xr.get_supported_environment_blend_modes())
-	# OpenXR paces the frames itself; with V-Sync the desktop window would also wait for the monitor
-	# and could drag the headset down to a fraction of its refresh rate.
-	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	get_viewport().msaa_3d = _perf_msaa() # smooth edges: jaggies and shimmering are far more visible in a headset
 	return true
 
 
-## MSAA for the headset and the spectator window: 4x, or 2x in performance mode.
+## MSAA for the headset: 4x, or 2x in performance mode.
 func _perf_msaa() -> Viewport.MSAA:
 	return Viewport.MSAA_2X if _perf else Viewport.MSAA_4X
 
 
-## "Performance" in the VR menu: for slower PCs. 2x instead of 4x MSAA, no bloom, no shadows, the
-## room's side lamps off, and (from the next start) fewer pixels per eye. Kept in the settings.
+## "Performance" in the VR menu (on by default: the headset's GPU): 2x instead of 4x MSAA, no bloom, no shadows and the
+## room's side lamps off. Kept in the settings.
 func _set_perf(on: bool) -> void:
 	_perf = on
 	_apply_perf()
@@ -5330,7 +5271,7 @@ func _set_perf(on: bool) -> void:
 	cfg.load(LAYOUT_FILE)
 	cfg.set_value("settings", "performance", on)
 	cfg.save(LAYOUT_FILE)
-	_set_status("Performance mode on (sharpness changes with the next start)" if on else "Performance mode off (sharpness changes with the next start)")
+	_set_status("Performance mode on" if on else "Performance mode off")
 
 
 func _apply_perf() -> void:
@@ -5340,8 +5281,6 @@ func _apply_perf() -> void:
 	_casino.set_performance(_perf)
 	if _end_spot != null:
 		_end_spot.shadow_enabled = not _perf
-	if _spectator != null:
-		_spectator.set_msaa(_perf_msaa())
 
 
 func _build_scene() -> void:
@@ -5410,17 +5349,17 @@ func _build_scene() -> void:
 	_layout.add_child(_intro)
 
 	_status3d = Label3D.new()
-	_status3d.text = "Waiting for Balatro ...\nStart the game with the Balatro in VR mod"
+	_status3d.text = "Waiting for Balatro ...\nOpen \"Balatro VR Host\" from your app library"
 	_status3d.font_size = 64
 	_status3d.pixel_size = 0.0015
 	_status3d.position = Vector3(0, 0, 0.01)
 	_board.add_child(_status3d)
-	_set_status("Waiting for Balatro ... (start the game with the mod)")
+	_set_status(WAITING_STATUS)
 
 	if _vr:
 		_build_xr_rig()
 		_board.rotation_degrees = Vector3(-10, 0, 0) # lean back a little like a lectern
-		_set_backdrop(Backdrop.ROOM) # always starts in the casino (passthrough / green / dark via the VR menu)
+		_set_backdrop(Backdrop.ROOM) # always starts in the casino (dark / passthrough via the VR menu)
 	else:
 		_camera = Camera3D.new()
 		add_child(_camera)
@@ -5468,8 +5407,6 @@ func _build_scene() -> void:
 		_register_calibratable("Gegriffene Karten", _grab_anchor)
 	_build_calibration_help()
 	_load_settings()
-	if _spectator != null: # from here on every change (Options button or keys 1-3 in its window) is kept
-		_spectator.mode_changed.connect(func(_m): _save_spectator())
 	_load_layout()
 	# until the VR TUTORIAL has been played to its end once: a single line pointing to its sign
 	var cfg := ConfigFile.new()
@@ -5631,24 +5568,6 @@ func _build_xr_rig() -> void:
 		glove.left = side
 		grip.add_child(glove)
 		_gloves.append(glove)
-	# the calm spectator camera in its own window (for recording); the headset never sees the
-	# player's jester hat that only this camera shows
-	_head.cull_mask &= ~Spectator.HAT_LAYER
-	_spectator = Spectator.new()
-	_spectator.head = _head
-	_spectator.focus = func(): # the middle of the table, at its (calibrated) height
-		var p := _layout.to_global(PLAY_ROW)
-		p.y = _joker_table.global_position.y
-		return p
-	_spectator.place = func(): # your place in the room (fixed; moves only when re-centred)
-		var yaw := Basis(Vector3.UP, _layout.global_basis.get_euler().y)
-		return Transform3D(yaw, _layout.to_global(PLANET_CENTER))
-	_spectator.overview = func(): # between the played cards and the joker board
-		var p := _layout.to_global(PLAY_ROW).lerp(_joker_table.global_position, 0.5)
-		p.y = _joker_table.global_position.y
-		return p
-	_spectator.badge_hand = func(): return _holder # the LIVE badge sits on the card hand's wrist
-	add_child(_spectator)
 
 	# beam and fan get their hand in _apply_handedness()
 	_fan_anchor = Node3D.new()
@@ -7506,14 +7425,13 @@ var _released := {}              # hand card id -> time it was let go to be play
 var _flights: Array = []         # cards flying somewhere, see _fly()
 var _tension := false
 var _calm := false               # Calm Lights: no flashes, flicker or pulsing (photosensitive players)
-var _perf := false               # Performance mode for slower PCs, see _set_perf()
+var _perf := true                # Performance mode for the headset's GPU, see _set_perf()
 var _hands_on := true            # Jimbo's gloves shown
 var _jimbo_on := true            # "VR: Jimbo": he sits at the casino table
 var _jokers_3d := true           # "3D Jokers": the joker figures on the board (off: only their cards)
 var _jokers_custom_only := false # "3D Jokers: Custom Only": only figures from the custom_jokers folder
 var _ambience_on := true         # the casino's own sounds (slot machines, glasses, chips)
 var _gloves: Array = []          # the two JimboHands (VR only)
-var _spectator: Spectator        # the spectator camera window (VR only)
 var _wrist: WristMenu            # the VR settings above the card hand (menu button)
 var _main_menu: MainMenuVR       # the main menu as objects on the casino table (VR)
 var _score_tower: ScoreTower     # the blind's score against its target, beside the blind chip
@@ -7536,7 +7454,6 @@ var _card_stats: CardStatsVR     # Stats -> Card Stats as columns around you
 var _photo: PhotoCamera          # photo mode (VR menu: Photo Camera)
 var _radar: RadarScreen          # "UnderTheVRadar" reward
 var _glass_left: Array = []      # "Glass Breaker" reward: shard groups lying on the table this run
-var _stream_secs := 0.0          # "Streamer": seconds with the spectator window on
 var _ghost_next := 30.0          # "Ghost Hunter" reward: seconds until the lounge haunts again
 var _session_blind_won := false  # "Safe Travels": a blind was won in this session
 var _floor_ding_at := -10.0      # "Going Up!" reward: when the elevator dinged last

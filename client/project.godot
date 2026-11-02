@@ -15,7 +15,6 @@ config/version="1.1"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7")
 config/icon="res://icon.png"
-config/windows_native_icon="res://icon.ico"
 
 [audio]
 
@@ -25,7 +24,12 @@ driver/output_latency=60
 
 renderer/rendering_method="gl_compatibility"
 anti_aliasing/quality/msaa_3d=2
+textures/vram_compression/import_etc2_astc=true
 
 [xr]
 
 openxr/enabled=true
+shaders/enabled=true
+openxr/foveation_level=2
+openxr/foveation_dynamic=true
+openxr/foveation_with_subsampled_images=false
