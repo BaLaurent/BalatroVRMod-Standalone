@@ -29,7 +29,7 @@ export/android/android_sdk_path = "/path/to/android-sdk"
 export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk"
 ```
 
-(or set the same two fields in the Godot editor: Editor → Editor Settings → Export → Android). If the SDK is not at `/opt/android-sdk`, also `export ANDROID_HOME=/path/to/android-sdk` before building the host.
+(or set the same two fields in the Godot editor: Editor → Editor Settings → Export → Android). Before building the host, `export JAVA_HOME=/path/to/jdk-17` (the script also finds `/usr/lib/jvm/java-17-openjdk[-amd64]` by itself) and, if the SDK is not at `/opt/android-sdk`, `export ANDROID_HOME=/path/to/android-sdk`.
 
 ## Step 3: Build both apps
 

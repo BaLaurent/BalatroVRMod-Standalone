@@ -206,11 +206,26 @@ def patch_love_android(files):
             z.writestr(name, data)
 
 
+def jdk17():
+    """The JDK 17 for Gradle: $BALATRO_VR_JAVA_HOME, $JAVA_HOME, then the usual Linux paths."""
+    cands = [os.environ.get("BALATRO_VR_JAVA_HOME"), os.environ.get("JAVA_HOME"),
+             "/usr/lib/jvm/java-17-openjdk", "/usr/lib/jvm/java-17-openjdk-amd64"]
+    for home in filter(None, cands):
+        java = os.path.join(home, "bin", "java")
+        if not os.path.exists(java):
+            continue
+        out = subprocess.run([java, "-version"], capture_output=True, text=True).stderr
+        if re.search(r'version "17[."]', out):
+            return home
+        print(f"skipping {home}: not a JDK 17 ({out.splitlines()[0] if out else '?'})")
+    die("no JDK 17 found: set JAVA_HOME (or BALATRO_VR_JAVA_HOME) to a JDK 17")
+
+
 def build():
     env = dict(os.environ)
-    env["JAVA_HOME"] = "/usr/lib/jvm/java-17-openjdk"
+    env["JAVA_HOME"] = jdk17()
     env["ANDROID_HOME"] = env.get("ANDROID_HOME", "/opt/android-sdk")
-    env["PATH"] = env["JAVA_HOME"] + "/bin:" + env["PATH"]
+    env["PATH"] = os.path.join(env["JAVA_HOME"], "bin") + os.pathsep + env["PATH"]
     subprocess.run(["./gradlew", "--no-daemon", "assembleEmbedNoRecordRelease"], cwd=LOVE_ANDROID, env=env, check=True)
     apks = glob.glob(os.path.join(LOVE_ANDROID, "app/build/outputs/apk/embedNoRecord/release/*.apk"))
     if len(apks) != 1:
