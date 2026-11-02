@@ -56,6 +56,23 @@ adb install -r Release/BalatroVRHost.apk
 
 (or add `--install` to the two build commands). To update later, pull the repo, rebuild and install again: your settings, layout and Balatro profile are kept.
 
+### On Windows: build inside WSL2
+
+The build scripts are written for Linux; on Windows run them in WSL2 (Ubuntu) and follow Steps 2–4 there:
+
+1. In PowerShell: `wsl --install -d Ubuntu`, then open the Ubuntu terminal.
+2. Inside Ubuntu install the Linux tools: `sudo apt install openjdk-17-jdk git python3 curl unzip`, the Linux Godot 4.7.2 (as `godot` on your PATH) and the Android SDK command-line tools with the packages from Step 2. The editor settings file is `~/.config/godot/editor_settings-4.7.tres` inside Ubuntu.
+3. Clone this repo inside the Ubuntu home folder (not under `/mnt/c`: much faster). Your `Balatro.exe` is reachable from Ubuntu, e.g. `/mnt/c/Program Files (x86)/Steam/steamapps/common/Balatro/Balatro.exe`.
+4. Build as in Step 3, **without** `--install`.
+5. Install from Windows (WSL can't see USB devices): get [platform-tools](https://developer.android.com/tools/releases/platform-tools) for Windows, then in PowerShell, from that folder:
+   ```
+   .\adb install -r \\wsl$\Ubuntu\home\<you>\BalatroVRMod-Standalone\Release\BalatroInVR-Quest.apk
+   .\adb install -r \\wsl$\Ubuntu\home\<you>\BalatroVRMod-Standalone\Release\BalatroVRHost.apk
+   ```
+   (or connect adb over Wi-Fi from inside WSL: `adb tcpip 5555` while on USB from Windows, then `adb connect <headset-ip>` in Ubuntu).
+
+Native Windows (without WSL) is not supported yet.
+
 ## Step 5: Play
 
 1. Put on the headset and turn on both controllers (the VR app refuses to start without them).
